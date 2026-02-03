@@ -1,0 +1,1387 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Pedidos - Inventario (móvil)</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg:#0b0f14; --panel:#0f1620; --muted:#8aa0b6; --text:#e7f0fa;
+      --accent:#6ea8ff; --accent2:#7ee0c3; --warn:#ffcc66; --line:rgba(255,255,255,.08);
+      --shadow:0 10px 30px rgba(0,0,0,.35); --radius:16px;
+      --card: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:Roboto,system-ui,-apple-system,Segoe UI,Arial;
+      background:
+        radial-gradient(1200px 600px at 20% 0%, rgba(110,168,255,.12), transparent 55%),
+        radial-gradient(900px 500px at 90% 20%, rgba(126,224,195,.10), transparent 55%),
+        var(--bg);
+      color:var(--text);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .dot{
+      width:10px;height:10px;border-radius:999px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      box-shadow:0 0 0 6px rgba(110,168,255,.10)
+    }
+
+    /* ===== Topbar móvil ===== */
+    .topbar{
+      display:none;
+      position:sticky; top:0; z-index:50;
+      padding:12px 14px calc(12px + env(safe-area-inset-top));
+      background:linear-gradient(180deg, rgba(15,22,32,.98), rgba(15,22,32,.88));
+      border-bottom:1px solid var(--line);
+      backdrop-filter: blur(10px);
+    }
+    .topbar .row{display:flex;align-items:center;gap:10px}
+    .topbar .title{font-weight:900;letter-spacing:.2px;font-size:16px;display:flex;align-items:center;gap:8px}
+    .topbar .spacer{flex:1}
+    .badge{
+      padding:6px 10px;border-radius:999px;background:rgba(110,168,255,.12);
+      border:1px solid rgba(110,168,255,.25);font-size:12px
+    }
+
+    /* ===== Layout ===== */
+    .app{display:flex;min-height:100vh}
+    aside{
+      width:390px; min-width:340px;
+      background:linear-gradient(180deg, rgba(255,255,255,.03), transparent 22%),var(--panel);
+      border-right:1px solid var(--line);
+      position:sticky; top:0; height:100vh; display:flex; flex-direction:column;
+    }
+    main{flex:1;padding:16px;max-width:1200px;margin:0 auto}
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      border-radius:var(--radius)
+    }
+
+    /* ===== Inventario UI ===== */
+    aside header{padding:18px 18px 10px;border-bottom:1px solid var(--line)}
+    aside header .title{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.3px;font-size:18px}
+    aside header .sub{margin-top:6px;color:var(--muted);font-size:12px;line-height:1.35}
+
+    .block{padding:12px 18px;border-bottom:1px solid var(--line)}
+    .label{font-size:12px;color:var(--muted);font-weight:800;letter-spacing:.25px;margin-bottom:8px}
+    .inv-input{
+      width:100%; min-height:140px; resize:vertical;
+      border-radius:14px; border:1px solid var(--line);
+      background:rgba(255,255,255,.03); padding:10px 10px;
+      color:var(--text); outline:none; font-size:12.5px; line-height:1.35;
+    }
+    .search{padding:12px 18px 14px;display:flex;gap:10px;border-bottom:1px solid var(--line)}
+    .search .field{
+      flex:1;display:flex;align-items:center;gap:10px;
+      background:rgba(255,255,255,.04);border:1px solid var(--line);
+      border-radius:999px;padding:10px 12px
+    }
+    .search input{width:100%;border:0;outline:0;background:transparent;color:var(--text);font-size:14px}
+    .pill{padding:6px 10px;border-radius:999px;background:rgba(110,168,255,.12);border:1px solid rgba(110,168,255,.25);font-size:12px}
+    .inv{padding:10px 10px 14px;overflow:auto}
+    .inv-item{padding:10px 10px;border-radius:14px;border:1px solid transparent;margin:6px 8px;transition:.12s}
+    .inv-item:hover{background:rgba(255,255,255,.04);border-color:var(--line)}
+    .inv-item .name{font-weight:700;font-size:13px;letter-spacing:.2px}
+    .inv-item .meta{margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:12px}
+    .chip{border:1px solid var(--line);background:rgba(255,255,255,.03);padding:4px 8px;border-radius:999px}
+
+    /* ===== Input pedidos ===== */
+    .input-card{padding:14px}
+    .row{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+    .textarea{
+      flex:1;min-width:260px;border-radius:14px;border:1px solid var(--line);
+      background:rgba(255,255,255,.03);padding:12px;color:var(--text);
+      font-size:15px;outline:none;min-height:110px;resize:vertical;line-height:1.35
+    }
+    .btns{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}
+    button{
+      border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);
+      padding:10px 12px;border-radius:14px;font-weight:800;cursor:pointer;
+      display:flex;align-items:center;gap:8px;transition:.12s;user-select:none
+    }
+    button:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14)}
+    button.primary{background:linear-gradient(135deg, rgba(110,168,255,.22), rgba(126,224,195,.16));border-color:rgba(110,168,255,.28)}
+    button.warn{background:rgba(255,204,102,.12);border-color:rgba(255,204,102,.24)}
+    button.ghost{background:rgba(255,255,255,.02)}
+    .hint{margin-top:10px;color:var(--muted);font-size:12px;line-height:1.4}
+    .mini{font-size:12px;color:var(--muted);margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .right{margin-left:auto;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .linklike{color:var(--accent);text-decoration:none;font-weight:800;cursor:pointer}
+    .linklike:hover{text-decoration:underline}
+
+    /* ===== Lista (tabla responsive real) ===== */
+    .list-card{margin-top:14px;padding:12px}
+    .head{
+      display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+      padding:6px 2px 12px 2px; border-bottom:1px solid var(--line);
+      margin-bottom:10px;
+    }
+    .head .title{
+      font-weight:900;letter-spacing:.2px;display:flex;align-items:center;gap:8px
+    }
+    .head .spacer{flex:1}
+
+    .exportBox{
+      width:100%;
+      margin-top:10px;
+      display:none;
+    }
+    .exportBox textarea{
+      width:100%;
+      min-height:120px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      color:var(--text);
+      padding:10px;
+      font-size:12.5px;
+      line-height:1.35;
+      outline:none;
+      resize:vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    .gridTable{display:flex;flex-direction:column;gap:10px}
+    .gridHeader{
+      display:grid;
+      grid-template-columns: 120px 1fr 110px 110px 44px;
+      gap:8px;
+      padding:10px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      letter-spacing:.25px;
+    }
+    .gridRow{
+      display:grid;
+      grid-template-columns: 120px 1fr 110px 110px 44px;
+      gap:8px;
+      padding:10px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.02);
+    }
+
+    .cellWrap{display:flex;flex-direction:column;gap:6px;min-width:0}
+    .mLbl{display:none;font-size:11px;color:var(--muted);font-weight:900;letter-spacing:.2px}
+    .cell{
+      width:100%;
+      border:1px solid transparent;
+      background:rgba(255,255,255,.03);
+      color:var(--text);
+      padding:10px 10px;
+      border-radius:12px;
+      outline:none;
+      font-size:14px;
+      min-width:0;
+    }
+    .cell:focus{border-color:rgba(110,168,255,.35);background:rgba(110,168,255,.06)}
+    .cell.desc{overflow-wrap:anywhere}
+    .code-missing{background:rgba(255,204,102,.14)!important;border-color:rgba(255,204,102,.22)!important}
+
+    .delBtn{
+      border-radius:12px;
+      padding:10px;
+      justify-content:center;
+      width:44px;
+      background:rgba(255,255,255,.03);
+    }
+
+    .rowHint{
+      grid-column: 1 / -1;
+      color:var(--muted);
+      font-size:12px;
+      margin-top:4px;
+      display:none
+    }
+
+    /* ===== Drawer móvil ===== */
+    .overlay{
+      position:fixed; inset:0; background:rgba(0,0,0,.45);
+      opacity:0; pointer-events:none; transition:opacity .18s ease;
+      z-index:90;
+    }
+    .overlay.show{opacity:1; pointer-events:auto}
+
+    /* ===== Mobile real: no scroll horizontal, “tabla” en 2 líneas ===== */
+    @media (max-width:980px){
+      .topbar{display:block}
+      main{padding:14px}
+      aside{
+        position:fixed; inset:0 0 0 auto; width:min(92vw,420px); height:100vh;
+        transform: translateX(105%);
+        transition: transform .18s ease;
+        z-index:100;
+        box-shadow: var(--shadow);
+        border-right:0;
+      }
+      aside.open{transform: translateX(0)}
+      .btns button{flex:1; justify-content:center}
+      .textarea{min-height:130px}
+
+      /* header de columnas no fuerza ancho */
+      .gridHeader{display:none;}
+
+      /* cada fila: 2 líneas tipo tabla */
+      .gridRow{
+        grid-template-columns: 1fr 1fr 1fr 44px;
+        grid-template-areas:
+          "code qty unit del"
+          "desc desc desc desc"
+          "hint hint hint hint";
+        align-items:start;
+      }
+
+      .wCode{grid-area:code}
+      .wQty{grid-area:qty}
+      .wUnit{grid-area:unit}
+      .wDel{grid-area:del}
+      .wDesc{grid-area:desc}
+      .wHint{grid-area:hint}
+
+      .mLbl{display:block}
+      .cell{font-size:15px}
+    }
+
+    @media (max-width:420px){
+      .cell{padding:10px 9px}
+      .delBtn{width:42px}
+    }
+  </style>
+</head>
+
+<body>
+<div class="topbar">
+  <div class="row">
+    <div class="title"><span class="dot"></span> Pedidos</div>
+    <div class="spacer"></div>
+    <button class="primary" id="btnOpenInv" style="padding:10px 12px;border-radius:999px">
+      <span class="material-icons">inventory_2</span>Inventario
+      <span class="badge" id="invCountTop">0</span>
+    </button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"></div>
+
+<div class="app">
+  <aside id="aside">
+    <header>
+      <div class="title"><span class="dot"></span> Inventario</div>
+      <div class="sub">Cargado por defecto (y editable). El sistema usa SOLO estos códigos.</div>
+    </header>
+
+    <div class="block">
+      <div class="label">Inventario (editable)</div>
+      <textarea id="invRaw" class="inv-input" spellcheck="false"></textarea>
+
+      <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+        <button class="primary" id="btnSaveInv"><span class="material-icons">save</span>Guardar</button>
+        <button id="btnCloseInv"><span class="material-icons">close</span>Cerrar</button>
+        <button class="warn" id="btnResetAll"><span class="material-icons">delete_forever</span>Reset</button>
+      </div>
+
+      <div class="hint" style="margin-top:10px">
+        Formato: <b>CÓDIGO</b> + espacios/tab + <b>DESCRIPCIÓN</b> (1 línea por artículo).
+      </div>
+    </div>
+
+    <div class="search">
+      <div class="field">
+        <span class="material-icons" style="font-size:18px;color:var(--muted)">search</span>
+        <input id="invSearch" placeholder="Buscar por nombre o código…"/>
+      </div>
+      <div class="pill" id="invCount">0</div>
+    </div>
+
+    <div class="inv" id="invList"></div>
+  </aside>
+
+  <main>
+    <div class="card input-card">
+      <div class="row">
+        <textarea id="orderInput" class="textarea" placeholder="Formato: [cantidad][unidad] [artículo]
+Ej: 5c tomate bola
+Ej: 2kg tomate g
+Ej: 10u manzana royal gala 24
+Ej: 5 tomate bola  (sin unidad)"></textarea>
+
+        <div class="btns">
+          <button class="primary" id="btnAdd"><span class="material-icons">add</span>Procesar</button>
+          <button id="btnMic"><span class="material-icons">mic</span>Dictado</button>
+          <button class="warn" id="btnClear"><span class="material-icons">delete</span>Limpiar</button>
+        </div>
+      </div>
+
+      <div class="hint">
+        <b>Unidades:</b> se guarda <b>exactamente</b> la unidad que tú escribes. Si no escribes unidad, queda en blanco.<br><br>
+        <b>Descripción:</b>
+        • Si <b>NO</b> está en la base → queda <b>exactamente</b> lo que escribes/dictas (código vacío amarillo).<br/>
+        • Si <b>SÍ</b> está en la base → se pone el <b>nombre exacto</b> del inventario.<br/><br>
+        <b>Match estricto:</b> si pones “tomate <b>bola</b>”, tiene que existir “bola” en el artículo.
+      </div>
+
+      <div class="mini">
+        <span class="chip">Varios códigos por base → si no indicas variante, usa el <b>código más alto</b></span>
+        <span class="chip">Si queda amarillo y pones un código, lo aprende (sin cambiar códigos)</span>
+        <span class="right"><span class="linklike" id="btnResetLearned">Borrar aprendizaje</span></span>
+      </div>
+    </div>
+
+    <div class="card list-card">
+      <div class="head">
+        <div class="title"><span class="dot"></span> Lista de pedidos</div>
+        <div class="spacer"></div>
+        <button class="primary" id="btnCopy"><span class="material-icons">content_copy</span>Copiar WhatsApp</button>
+        <button class="ghost" id="btnToggleExport"><span class="material-icons">text_snippet</span>Ver texto</button>
+      </div>
+
+      <div class="gridTable" id="gridTable">
+        <div class="gridHeader">
+          <div>Refe Codig</div>
+          <div>Descripción</div>
+          <div>Cantidad</div>
+          <div>Unidad</div>
+          <div></div>
+        </div>
+        <div id="rows"></div>
+      </div>
+
+      <div class="exportBox" id="exportBox">
+        <div class="hint" style="margin-bottom:8px">
+          Esto es lo que se copia para WhatsApp (puedes seleccionar manualmente también).
+        </div>
+        <textarea id="exportText" readonly></textarea>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* =========================
+   Inventario inicial (incluido)
+========================= */
+const DEFAULT_INV_TEXT = `343\tMINI ESPARRAGO
+468\tBROTES RADICHIO
+5000\tMANZANA ROYAL GALA 24
+5570\tMANZANA STARKING 24
+3580\tMELON GALIA
+7790\tSANDIA MALLORCA
+5571\tMANZANA STARKING 20
+3281\tCOCO DE AGUA
+9091\tALFALFA KILO
+5502\tCAQUI PERSIMON
+5562\tMANZANA GRAN SMITH 20
+3592\tNECTARINA 20
+9943\tPIÑA AVION CAJA
+4793\tSANDIA NEGRA SIN PEPITA
+6004\tPERA BLANQUILLA 20
+3584\tMELON ERIZO MALLORCA
+9015\tALGA SALICORNIA - ESPARRAGO DE MAR
+1065\tFRUTA RODAJAS - TROCEADAS
+2576\tMELOCOTON AMARILLO 26
+7578\tMELON PIEL DE SAPO MALLORCA
+10\tACELGA MALLORCA
+20\tLIMAS
+30\tBERROS
+40\tMENTA MANOJO
+50\tAPIO MANOJO VERDE MALLORCA
+60\tHIERBA BUENA MANOJO MALLORCA
+70\tALBAHACA MANOJO
+35\tENELDO FRESCO MANOJO
+55\tCEBOLLINO MANOJO MALLORCA
+65\tRADICCIO
+36\tENELDO MALLORCA
+66\tCHALOTA
+47\tAJOS TIERNOS
+67\tCHALOTA PELADA
+500\tLAUREL MANOJO MALLORCA
+800\tSOFRITOS MANOJO MALLORCA
+910\tREMOLACHA FRESCA
+420\tICEBERG CORTADA 20 MM 1KG
+520\tNAPICOL
+230\tCEBOLLA COMÚN
+830\tRABANITOS MANOJO
+840\tSOPAS MALLORCA
+450\tHIERBAS CARACOLES MALLORCA
+360\tCOLIFLOR MALLORCA
+460\tOREGANO BOLSA 1 KG
+670\tPEREJIL MANOJO MALLORCA
+380\tESPINACAS MALLORCA
+780\tPUERROS MALLORCA
+801\tCEBOLLETAS MALLORCA
+231\tCEBOLLA BLANCA
+831\tRABANITO HOLANDES
+451\tROMERO MALLORCA
+671\tPERIFOLLO MANOJO MALLORCA
+481\tICEBERG 250G FLORET
+681\tPATATA LAVADA 25 Kg.
+691\tPATATA JUMBO 25 Kg.
+482\tRUCULA BARQUETA 150G FLORET
+682\tPATATA PASTA BLANCA 25 Kg.
+782\tPUERRO GORDO EXTRA
+692\tPATATA BLANCA 5 Kg. MALLORCA
+433\tENSALADA MEZCLUM FLORET 500 GR. 4 ING
+463\tRUCULA GRANEL 1 Kg.
+473\tGOURMET ENSALADA 175G FLORET
+493\tENSALADA MEZCLUM MIXTURA FLORET
+693\tPATATA ROJA
+804\tHUEVOS CAMPEROS
+234\tCEBOLLA PELADA MALLORCA
+834\tRABANO BLANCO DAIKON
+344\tESPARRAGOS VERDES GORDOS
+454\tCILANTRO MANOJO MALLORCA
+694\tPATATA MORADA
+405\tESCAROLA FRISE
+805\tHUEVOS XL
+235\tCEBOLLA MORADA
+835\tRABANOS MALLORCA
+445\tENSALADA MEZCLUM MEDITERRANEA 500Gr.FLORET
+455\tROMANESCO
+385\tESPINACA HOJAS 250G FLORET
+695\tPATATO MALLORCA
+406\tESCAROLAS MALLORCA
+706\tPATATA AGRIA PELADA
+806\tHUEVOS ESTUCHADOS
+456\tGERMINADO DE ALFALFA
+696\tPATATO PELADO 10 kg MALLORCA
+807\tHUEVOS L
+447\tENSALADA MEZCLUM 1 Kg.(8 ingred)
+457\tBROTES MIZUNA
+477\tBERROS FLORET 125G
+497\tSALVIA MALLORCA
+697\tPATATA AGRIA ESPECIAL FREIR
+808\tHUEVOS CODORNIZ
+518\tNABOS POR KG.
+458\tFLOR DE HIELO - BROCOLI
+488\tCANONIGO BARQUETA DE 100G FLORET
+498\tOREGANO (MEJORANA) MJ MALLORCA
+698\tPATATA PELADA DADOS - CUADROS MALLORCA
+809\tHUEVOS M
+439\tPACHOE x kgs
+459\tBROTES DE MOSTAZA
+469\tREMOLACHA AMARILLA
+499\tTOMILLO MANOJO MALLORCA
+699\tPATATA PARMENTINE
+6200\tPERA ERCOLINA
+3400\tENDIVIA BELGA BANDEJA
+6400\tPERA CONFERENCIA 26
+5500\tCAQUIS MALLORCA
+3600\tNARANJA ZUMO
+2010\tGERMINADO DE RABANO
+9010\tFLOR DE CALABACIN
+1210\tCEREZAS
+1410\tFRESAS MALLORCA
+1510\tGIRGOLAS
+4510\tMANGOS
+1710\tPLATANO BAN
+9910\tYUCA
+3420\tGRANADAS IMPORTACION
+3520\tCOGOLLOS DE TUDELA
+9520\tLECHUGA ROMANA MALLORCA
+1620\tSETAS
+4720\tPIMIENTO ROJO PRIMERA
+1630\tGUISANTES
+3630\tNARANJA HOJA MALLORCA
+4730\tMINI PIMIENTO
+9050\tHOJA DE OSTRA
+3550\tMAIZ COCIDO
+3750\tREMOLACHA COCIDA
+1060\tALCACHOFA
+9060\tMICRO MEZCLUM FLOR BANDEJA 60GR
+1160\tCALABAZA MALLORCA
+4260\tCHIRIMOLLAS
+1460\tHIGOS FRESCOS
+9660\tPEPINOS
+4860\tTIRABEQUES
+9960\tGARRAFA SUC LLIMONA 5L
+1070\tALBARICOQUE
+3470\tHINOJO RAIZ
+2570\tMELOCOTON ROJO 24
+3080\tAPIO BLANCO
+4180\tCALABACIN NEGRO
+3280\tCOCOS
+4480\tJUDIA ANCHA
+1980\tZANAHORIA kilos
+9090\tSOJA KILO
+3590\tNECTARINA 24
+3790\tPARAGUAYOS
+4790\tSANDIA RAYADA - NEGRA
+1990\tMINI ZANAHORIA NEGRA
+1\tOTROS/VARIOS
+2001\tGERMINADOS CEBOLLA
+5001\tMANZANA ROYAL GALA 24-26
+6001\tPERA BLANQUILLA 26
+9001\tTOMATE CHERRY BANDEJAS 250 GR
+9101\tZANAHORIA AMARILLA
+6401\tPERA CONFERENCIA 24
+3601\tNARANJA VALENCIA
+9801\tTOMATE NEGRO (KUMATO)
+2011\tGERMINADO DE PUERRO
+9011\tNARANJA DE LA CHINA (KUMQUAT) x caja
+1511\tGIRGOLAS BANDEJA
+4511\tMANGO AVION X CAJA
+9911\tTOMATE RAF
+9021\tFRUTA DE LA PASION CAJA
+3521\tLECHUGA ICEBERG
+1621\tSETAS PICORNELL
+3041\tAJOS FLOR
+5041\tMANZANA PINK LADY Calibre 20
+4141\tBONIATO BLANCO
+1241\tCHAMPIÑON MALLORCA
+3541\tLIMON EXTRA
+9051\tMICRO MEZCLUM
+3551\tMAIZ MAZORCAS
+3651\tÑORAS KILOS
+9061\tMINI PUERRO
+9661\tPEPINO HOLANDES
+3761\tPOMELO ROJO
+3961\tUVA ROSADA RED GLOBE
+3371\tDATIL RAMA
+3471\tHINOJO HOJA MANOJO MALLORCA
+2571\tMELOCOTON ROJO 26
+9971\tKALE
+4181\tCALABACIN BLANCO
+3581\tMELON MARINA MALLORCA
+1881\tTOMATE RAMILLETE SUELTO MALLORCA
+6981\tPATATA PELADA ENTERA MALLORCA
+3591\tNECTARINA 24 - 26
+3691\tPATATO PRECOCINADO
+3791\tPAPAYAS
+9991\tGERMINADO DE SOJA
+2002\tSHISO - SAKURA (GERMINADOS)(CAJA)
+5002\tMANZANA ROYAL GALA 20
+6002\tPERA BLANQUILLA 32
+9002\tFLOR COMESTIBLE
+3302\tCOL REPOLLO
+3402\tENDIVIA ROJA
+6402\tPERA CONFERENCIA 20
+9902\tTOMATE CORAZON DE BUEY
+9012\tCARAMBOLAS CAJA
+3512\tKIWIS ITALIA
+9912\tHOJA ROBLE VERDE MALLORCA
+3022\tAGUACATES CAJA (TROPS O SIMILAR)
+2522\tLECHUGA TROCADERO MALLORCA
+1622\tSETAS SIICHIS-TAKE
+9032\tPITAHAYA CAJA - FRUTA DEL DRAGON
+1232\tCEBOLLA MORADA PELADA
+3042\tAJO PELADO
+5042\tMANZANA PINK LADY Calibre 26
+4142\tBATATA
+1242\tCHAMPIÑON PORTOBELLO
+9052\tTAMARINDO
+3252\tCIRUELA BLANCA
+3552\tMINI MAZORCA
+9062\tMINI REMOLACHA
+4862\tTIRABEQUES MINI CAJA
+3962\tUVA NEGRA SIN PEPITA
+3472\tRAIZ DE APIO
+1982\tZANAHORIA RALLADA IV GAMA 1Kg.
+6982\tPATATA PELADA ESPAÑOLA MALLORCA
+9982\tTOMATE SECO
+4792\tSANDIA FASHION/BOUQUET
+2003\tHOJAS DE SHISO (BANDEJAS)
+6003\tPERA BLANQUILLA 24
+9003\tFRAMBUESA
+3303\tCOL LOMBARDA
+7303\tCOL LOMBARDA MALLORCA
+9903\tHOJAS ROBLE MALLORCA
+3513\tKIWIS NUEVA ZELANDA
+3023\tAGUACATES GRANEL
+4123\tBERENJENA
+1723\tPIMIENTO PADRON
+9033\tHOJA DE PLATANO
+9043\tTOMATE CHERRY PERA
+3253\tCIRUELA ROJA
+5563\tMANZANA GRAN SMITH 24
+1173\tBIMI
+3373\tDATILES SIN HUESO 5 Kg.
+3683\tCLEMENTINA
+5683\tMANZANA GOLDEN EXTRA
+1983\tMINI ZANAHORIA
+6983\tPATATA PELADA PANADERA MALLORCA
+2004\tAFILA CRESS GERMINADO ACEDERA x bdjas
+9004\tGROSELLA
+3604\tNARANJA VALENCIA CONFECCIONADA
+8904\tPUERROS HOLANDES
+9904\tTOMATE SUPER EXTRA (GGG)
+3514\tKIWI AMARILLO x CAJA
+9024\tMARACUYA (x caja)
+4124\tBERENJENA RAYADA
+9034\tTOPINAMBUR
+9044\tTOMATE CHERRY RAMA
+1244\tCHAMPIÑON BANDEJA 350 gr
+5564\tMANZANA GRAN SMITH IMPORTACION
+5684\tMANZANA GOLDEN 20
+6984\tPATATA PELADA ENSALADILLA MALLORCA
+2005\tGERMINADO DE REMOLACHA
+9005\tMORAS
+3305\tCOL CHINA
+9905\tTOMATE EXTRA (G)
+3515\tKIWI ZESPRI
+1725\tGUINDILLA FRESCA VERDE - ROJA
+4725\tPIMIENTO ITALIANO
+9045\tTAMARILLO (CAJA)
+1245\tCHAMPIÑON LAMINADO Bja 250 gr
+3745\tPIÑA TROPICAL MONTE
+3455\tJALAPEÑOS
+2575\tMELOCOTON AMARILLO (24)
+3575\tMELON BOLLO - EL ABUELO
+4485\tJUDIA FINA
+5685\tMANZANA GOLDEN 24
+2006\tGERMINADO DE AJO
+9006\tARANDANOS
+1706\tPLATANO PRIMERA
+9906\tTOMATE PERA
+9026\tTOMATE CHERRY AMARILLO
+9046\tTOMATE CHERRY GRANEL
+3746\tPIÑA COSTA RICA
+4946\tUVA BLANCA SIN PEPITA
+5686\tMANZANA GOLDEN 26
+9996\tESTRAGON
+2007\tGERMINADO COL LOMBARDA
+9007\tPHYSALIS
+1707\tPLATANO MACHO
+9907\tTOMATE BOLA MM
+9027\tMINI CALABACIN
+4727\tPIMIENTO AMARILLO
+9057\tTOMATE CHERRY COCTEL
+5567\tMANZANA FUJI IMPORTACION
+4477\tTOMATE NATURAL RALLADO BIBERON 750GR
+3577\tMELON CANTALOUP
+5577\tMANZANA FUJI NACIONAL 24
+1987\tZANAHORIA PELADA ENTERA
+9987\tLOLO ROSA MALLORCA
+2008\tGERMINADOS DE GUISANTE - ESPARRAGO
+9908\tTOMATE RAMA
+9018\tLEMONGRASS (citronella)
+9918\tTOMATE ROSA FEO
+9028\tMINI BERENJENA
+4728\tPIMIENTO BLANCO
+4948\tUVA BLANCA EXTRA
+9958\tZUMOS FRUTA - VERDURA
+5568\tMANZANA ROJA
+4478\tTOMATE NATURAL RALLADO BIBERON 1100GR
+3578\tMELON PIEL DE SAPO
+9988\tLOLO VERDE MALLORCA
+2009\tGERMINADO DE LENTEJA
+1409\tFRESA
+9909\tJENGIBRE
+3519\tCORAZON DE COGOLLO
+1629\tSETAS CARDO
+4729\tPIMIENTO LAMUYO VERDE
+9039\tMANGOSTAN CAJA
+3049\tAJO NEGRO
+1249\tCHAMPIÑON CR
+9959\tGARRAFA SMOOTHIE DE 3 LITROS
+5569\tMANZANA STARKING IMPORTACION
+3579\tMELON AMARILLO
+9979\tGARRAFA SUC TARONJA 5L
+7253\tCIRUELA ROJA MALLORCA`;
+
+/* =========================
+   Persistencia
+========================= */
+const LS_INV_TEXT = "inv_text_v7";
+const LS_LEARNED  = "inv_learned_v7";
+
+/* =========================
+   Helpers
+========================= */
+function normalize(s){
+  return (s ?? "")
+    .toString()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^\p{L}\p{N}\s]/gu," ")
+    .replace(/\s+/g," ")
+    .trim()
+    .toLowerCase();
+}
+function tokenList(s){
+  const n = normalize(s);
+  return n ? n.split(" ").filter(Boolean) : [];
+}
+function escapeHtml(s){
+  return (s ?? "").toString()
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+}
+
+/* =========================
+   Base desde nombre (AGRUPA, NO CAMBIA CÓDIGOS)
+========================= */
+function baseFromName(name){
+  let s = (name ?? "").toString().trim();
+  s = s.replace(/\bcalibre\s+\d+\b/ig, "").trim();
+  s = s.replace(/\s+\d+\s*-\s*\d+\s*$/g, "").trim();
+  s = s.replace(/\s+\d+\s*$/g, "").trim();
+  return s.replace(/\s+/g, " ").trim();
+}
+
+/* =========================
+   Parse inventario pegado: CODE + NAME
+========================= */
+function parseInventoryText(text){
+  const lines = (text || "").split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  const rows = [];
+  for(const line of lines){
+    const m = line.match(/^(\d+)\s+(.+)$/);
+    if(!m) continue;
+    const code = parseInt(m[1], 10);
+    const name = m[2].trim();
+    if(!Number.isFinite(code) || !name) continue;
+    rows.push({ code, name });
+  }
+  return rows;
+}
+
+/* =========================
+   Learned
+========================= */
+function loadLearned(){
+  try{
+    const raw = localStorage.getItem(LS_LEARNED);
+    if(!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  }catch{ return []; }
+}
+function saveLearned(arr){
+  localStorage.setItem(LS_LEARNED, JSON.stringify(arr));
+}
+
+/* =========================
+   DB e Index
+========================= */
+let DB = [];
+let INDEX = null;
+let IDF = null;
+
+function buildDbFromText(text){
+  const rows = parseInventoryText(text);
+  const learned = loadLearned();
+  const allRows = [...rows, ...learned];
+
+  const map = new Map();
+  for(const r of allRows){
+    const base = baseFromName(r.name);
+    const key = normalize(base);
+    if(!map.has(key)){
+      map.set(key, { base, codes: [], variants: [] });
+    }
+    const entry = map.get(key);
+    entry.codes.push(r.code);
+    entry.variants.push({ name: r.name, code: r.code });
+  }
+
+  const out = [];
+  for(const e of map.values()){
+    e.codes = Array.from(new Set(e.codes)).sort((a,b)=>a-b);
+
+    const seen = new Set();
+    const uniq = [];
+    for(const v of e.variants){
+      const k = normalize(v.name) + "|" + v.code;
+      if(seen.has(k)) continue;
+      seen.add(k);
+      uniq.push(v);
+    }
+    e.variants = uniq.sort((a,b)=>a.name.localeCompare(b.name,"es"));
+    out.push(e);
+  }
+
+  DB = out.sort((a,b)=>a.base.localeCompare(b.base,"es"));
+  buildIndex();
+}
+
+function buildIndex(){
+  const flat = [];
+  const df = new Map();
+  let N = 0;
+
+  for(const entry of DB){
+    for(const v of entry.variants){
+      const nName = normalize(v.name);
+      const toks = new Set(tokenList(v.name));
+      flat.push({ entry, variant:v, nName, toks, code:v.code });
+      N++;
+      for(const t of toks) df.set(t, (df.get(t)||0) + 1);
+    }
+  }
+
+  const idf = new Map();
+  for(const [t,c] of df.entries()){
+    idf.set(t, Math.log((N+1)/(c+1)) + 1);
+  }
+
+  INDEX = flat;
+  IDF = idf;
+}
+
+function overlapScore(descSet, candSet){
+  let s = 0;
+  for(const t of descSet){
+    if(candSet.has(t)) s += (IDF.get(t) || 1);
+  }
+  return s;
+}
+
+/* =========================
+   MATCHING ESTRICTO (tomate bola ≠ tomate g)
+========================= */
+const STOP_TOKENS = new Set([
+  "de","la","el","y","o","x","por","con","sin",
+  "kg","k","gr","uds","ud","u","c","caja","bandeja","manojo",
+  "mallorca","extra","primera","segunda","tercera","cuarta",
+  "calibre","mm","gama"
+]);
+const SHORT_KEY_TOKENS = new Set(["g","gg","ggg","raf","bola","pera","rama","kumato"]);
+
+function getRequiredTokens(userDesc){
+  const toks = tokenList(userDesc);
+  return toks.filter(t => {
+    if(/^\d+$/.test(t)) return false;
+    if(STOP_TOKENS.has(t)) return false;
+    if(t.length >= 2) return true;
+    return SHORT_KEY_TOKENS.has(t);
+  });
+}
+function containsAllTokens(candSet, reqTokens){
+  for(const t of reqTokens){
+    if(!candSet.has(t)) return false;
+  }
+  return true;
+}
+
+function findBestMatch(desc){
+  if(!INDEX) return null;
+
+  const nDesc = normalize(desc);
+  if(nDesc.length < 2) return null;
+
+  const dTokens = tokenList(desc);
+  if(!dTokens.length) return null;
+  const dSet = new Set(dTokens);
+
+  const req = getRequiredTokens(desc);
+  const requireAll = req.length >= 2; // si hay 2+ tokens relevantes, deben estar
+
+  let best=null, bestScore=-1;
+  let secondScore=-1;
+
+  for(const cand of INDEX){
+    if(requireAll && !containsAllTokens(cand.toks, req)) continue;
+
+    const candHasUserPhrase = cand.nName.includes(nDesc) && nDesc.length >= 4;
+    const userHasCandPhrase = nDesc.includes(cand.nName) && cand.nName.length >= 5;
+
+    const ov = overlapScore(dSet, cand.toks);
+    if(ov <= 0 && !candHasUserPhrase && !userHasCandPhrase) continue;
+
+    let score = ov * 100;
+    if(candHasUserPhrase) score += 2600;
+    if(userHasCandPhrase) score += 1800;
+
+    let extra = 0;
+    for(const t of cand.toks) if(!dSet.has(t)) extra++;
+    score -= Math.max(0, extra - 1) * 45;
+
+    score += Math.min(50, cand.nName.length);
+
+    if(score > bestScore){
+      secondScore = bestScore;
+      bestScore = score;
+      best = cand;
+    }else if(score > secondScore){
+      secondScore = score;
+    }
+  }
+
+  if(!best) return null;
+  if(bestScore < 260) return null;
+
+  const margin = bestScore - (secondScore < 0 ? -9999 : secondScore);
+  const strong = bestScore >= 1000 || best.nName.includes(nDesc);
+  if(!strong && margin < 140) return null;
+
+  return best;
+}
+
+/* =========================
+   Variantes:
+   - si el usuario incluye número (20/24/26/750/1100...) intenta esa variante
+   - si no, usa el código más alto del grupo
+========================= */
+function pickVariantByUserHint(entry, userDesc){
+  const nums = (userDesc.match(/\d+/g) || []).map(n => parseInt(n,10)).filter(Number.isFinite);
+
+  if(nums.length){
+    const nUser = normalize(userDesc);
+    for(const v of entry.variants){
+      const nv = normalize(v.name);
+      for(const x of nums){
+        if(nv.includes(String(x)) && nUser.includes(String(x))) return v;
+      }
+    }
+  }
+
+  const maxCode = Math.max(...entry.codes);
+  const v2 = entry.variants.find(v => v.code === maxCode);
+  return v2 || entry.variants[0] || null;
+}
+
+/* =========================
+   UI: Inventario
+========================= */
+const invListEl = document.getElementById("invList");
+const invSearchEl = document.getElementById("invSearch");
+const invCountEl = document.getElementById("invCount");
+const invCountTopEl = document.getElementById("invCountTop");
+const invRawEl = document.getElementById("invRaw");
+
+function renderInventory(){
+  const q = normalize(invSearchEl.value);
+  const filtered = !q ? DB : DB.filter(e => {
+    const hay = normalize(e.base) + " " + e.codes.join(" ") + " " + e.variants.map(v => normalize(v.name)).join(" ");
+    return hay.includes(q);
+  });
+
+  invCountEl.textContent = filtered.length;
+  invCountTopEl.textContent = filtered.length;
+  invListEl.innerHTML = "";
+
+  for(const e of filtered){
+    const div = document.createElement("div");
+    div.className = "inv-item";
+    const codes = e.codes;
+    const codeText = codes.length > 12 ? (codes.slice(0,12).join(", ") + "…") : codes.join(", ");
+    div.innerHTML = `
+      <div class="name">${escapeHtml(e.base)}</div>
+      <div class="meta">
+        <span class="chip">Códigos: <b>${escapeHtml(codeText)}</b></span>
+        <span class="chip">Variantes: <b>${e.variants.length}</b></span>
+      </div>`;
+    invListEl.appendChild(div);
+  }
+}
+invSearchEl.addEventListener("input", renderInventory);
+
+/* =========================
+   Pedidos (tabla responsive)
+========================= */
+const rowsEl = document.getElementById("rows");
+const exportBoxEl = document.getElementById("exportBox");
+const exportTextEl = document.getElementById("exportText");
+
+let ORDER_ROWS = []; // {id, code, desc, qty, unit, isNew, rawDesc}
+
+function renderRows(){
+  rowsEl.innerHTML = "";
+  for(const r of ORDER_ROWS){
+    const wrap = document.createElement("div");
+    wrap.className = "gridRow";
+    wrap.dataset.id = r.id;
+
+    wrap.innerHTML = `
+      <div class="cellWrap wCode">
+        <div class="mLbl">Código</div>
+        <input class="cell ${(!r.code ? "code-missing" : "")}" data-role="code" value="${escapeHtml(r.code||"")}" placeholder="(vacío)"/>
+      </div>
+
+      <div class="cellWrap wDesc">
+        <div class="mLbl">Descripción</div>
+        <input class="cell desc" data-role="desc" value="${escapeHtml(r.desc||"")}" />
+      </div>
+
+      <div class="cellWrap wQty">
+        <div class="mLbl">Cantidad</div>
+        <input class="cell" data-role="qty" value="${escapeHtml(r.qty||"")}" />
+      </div>
+
+      <div class="cellWrap wUnit">
+        <div class="mLbl">Unidad</div>
+        <input class="cell" data-role="unit" value="${escapeHtml(r.unit||"")}" />
+      </div>
+
+      <button class="delBtn warn wDel" data-role="del" title="Borrar">
+        <span class="material-icons" style="font-size:18px">delete</span>
+      </button>
+
+      <div class="rowHint wHint" data-role="hint" style="display:${r.isNew ? "block":"none"}">
+        No encontrado. Si completas el código, el sistema lo aprende.
+      </div>
+    `;
+
+    const codeEl = wrap.querySelector('[data-role="code"]');
+    const descEl = wrap.querySelector('[data-role="desc"]');
+    const qtyEl  = wrap.querySelector('[data-role="qty"]');
+    const unitEl = wrap.querySelector('[data-role="unit"]');
+    const hintEl = wrap.querySelector('[data-role="hint"]');
+
+    const syncBack = () => {
+      r.code = (codeEl.value||"").trim();
+      r.desc = (descEl.value||"").trim();
+      r.qty  = (qtyEl.value||"").trim();
+      r.unit = (unitEl.value||"").trim();
+      updateExportTextIfOpen();
+    };
+
+    codeEl.addEventListener("input", () => {
+      syncBack();
+      if(!r.code) codeEl.classList.add("code-missing");
+      else codeEl.classList.remove("code-missing");
+    });
+    descEl.addEventListener("input", syncBack);
+    qtyEl.addEventListener("input", syncBack);
+    unitEl.addEventListener("input", syncBack);
+
+    // Autocompletar por descripción si está amarillo y código vacío
+    descEl.addEventListener("blur", () => {
+      const codeVal = (codeEl.value || "").trim();
+      const isMissing = codeEl.classList.contains("code-missing");
+      if(!isMissing || codeVal) return;
+
+      const userText = (descEl.value || "").trim();
+      if(!userText) return;
+
+      const match = findBestMatch(userText);
+      if(!match) return;
+
+      const picked = pickVariantByUserHint(match.entry, userText);
+      if(!picked) return;
+
+      codeEl.value = String(picked.code);
+      descEl.value = picked.name;
+
+      r.code = String(picked.code);
+      r.desc = picked.name;
+      r.isNew = false;
+
+      codeEl.classList.remove("code-missing");
+      hintEl.style.display = "none";
+      updateExportTextIfOpen();
+    });
+
+    // Aprendizaje: si estaba amarillo y escribes código => aprende
+    codeEl.addEventListener("blur", () => {
+      const codeVal = (codeEl.value || "").trim();
+      const isMissing = codeEl.classList.contains("code-missing");
+      if(!isMissing || !codeVal) return;
+
+      const n = parseInt(codeVal, 10);
+      if(!Number.isFinite(n)){
+        alert("El código debe ser numérico.");
+        codeEl.value = "";
+        r.code = "";
+        updateExportTextIfOpen();
+        return;
+      }
+
+      const learnedName = (r.rawDesc || descEl.value || "").trim();
+      if(!learnedName){
+        alert("No puedo aprender un artículo sin descripción.");
+        codeEl.value = "";
+        r.code = "";
+        updateExportTextIfOpen();
+        return;
+      }
+
+      const learned = loadLearned();
+      learned.push({ code: n, name: learnedName });
+      saveLearned(learned);
+
+      const baseText = localStorage.getItem(LS_INV_TEXT) || "";
+      buildDbFromText(baseText);
+      renderInventory();
+
+      r.isNew = false;
+      hintEl.style.display = "none";
+      codeEl.classList.remove("code-missing");
+      updateExportTextIfOpen();
+    });
+
+    // delete
+    wrap.querySelector('[data-role="del"]').addEventListener("click", () => {
+      ORDER_ROWS = ORDER_ROWS.filter(x => x.id !== r.id);
+      renderRows();
+      updateExportTextIfOpen();
+    });
+
+    rowsEl.appendChild(wrap);
+  }
+}
+
+/* =========================
+   Entrada pedidos (UNIDADES EXACTAS)
+========================= */
+function parseLine(line){
+  const m = line.match(/^\s*(\d+(?:[.,]\d+)?)\s*(.*)\s*$/);
+  if(!m) return null;
+
+  const qty = m[1].replace(",", ".");
+  let rest = (m[2] || "").trim();
+  if(!rest) return null;
+
+  // Caso A: "5c ..." / "2kg ..."
+  const glued = rest.match(/^([a-zA-Z]{1,20})\s+(.*)$/);
+  if(glued){
+    const unit = glued[1]; // EXACTO
+    const desc = glued[2].trim();
+    if(!desc) return null;
+    return { qty, unit, desc };
+  }
+
+  // Caso B: "5 unidad descripcion" (unidad separada)
+  const parts = rest.split(/\s+/);
+  if(parts.length >= 2){
+    const maybeUnit = parts[0];
+    const descTry = parts.slice(1).join(" ").trim();
+    const isUnit = /^[a-zA-Z]{1,24}$/.test(maybeUnit) && !["de","la","el","los","las","y","o"].includes(maybeUnit.toLowerCase());
+    if(isUnit){
+      return { qty, unit: maybeUnit, desc: descTry };
+    }
+  }
+
+  // Caso C: sin unidad
+  return { qty, unit: "", desc: rest };
+}
+
+function addOrderRow({code, desc, qty, unit, isNew, rawDesc}){
+  ORDER_ROWS.push({
+    id: "r" + Math.random().toString(16).slice(2) + Date.now().toString(16),
+    code: code || "",
+    desc: desc || "",
+    qty: qty || "",
+    unit: unit || "",
+    isNew: !!isNew,
+    rawDesc: rawDesc || ""
+  });
+}
+
+function processInput(text){
+  const lines = (text || "").split(/\r?\n|;/).map(s => s.trim()).filter(Boolean);
+  for(const line of lines){
+    const parsed = parseLine(line);
+    if(!parsed) continue;
+
+    const { qty, unit, desc } = parsed;
+    const match = findBestMatch(desc);
+
+    if(match){
+      const picked = pickVariantByUserHint(match.entry, desc);
+      if(picked){
+        addOrderRow({ code:String(picked.code), desc:picked.name, qty, unit, isNew:false, rawDesc:desc });
+      }else{
+        addOrderRow({ code:"", desc:desc, qty, unit, isNew:true, rawDesc:desc });
+      }
+    }else{
+      addOrderRow({ code:"", desc:desc, qty, unit, isNew:true, rawDesc:desc });
+    }
+  }
+  renderRows();
+  updateExportTextIfOpen();
+}
+
+/* =========================
+   Export WhatsApp
+========================= */
+function exportText(){
+  const lines = [];
+  lines.push("CODIGO\tDESCRIPCION\tCANTIDAD\tUNIDAD");
+  for(const r of ORDER_ROWS){
+    const c = (r.code||"").trim();
+    const d = (r.desc||"").trim();
+    const q = (r.qty||"").trim();
+    const u = (r.unit||"").trim();
+    lines.push(`${c}\t${d}\t${q}\t${u}`);
+  }
+  return lines.join("\n");
+}
+function updateExportTextIfOpen(){
+  if(exportBoxEl.style.display === "block"){
+    exportTextEl.value = exportText();
+  }
+}
+async function copyToClipboard(text){
+  try{
+    await navigator.clipboard.writeText(text);
+    alert("Copiado. Ahora pégalo en WhatsApp.");
+  }catch{
+    exportBoxEl.style.display = "block";
+    exportTextEl.value = text;
+    exportTextEl.focus();
+    exportTextEl.select();
+    alert("No pude copiar automático. Selecciona y copia el texto manualmente.");
+  }
+}
+
+/* =========================
+   Dictado
+========================= */
+let recognition = null;
+let isListening = false;
+
+function setupSpeech(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR) return null;
+  const r = new SR();
+  r.lang = "es-ES";
+  r.interimResults = true;
+  r.continuous = true;
+  return r;
+}
+
+/* =========================
+   Mobile: abrir/cerrar inventario
+========================= */
+const asideEl = document.getElementById("aside");
+const overlayEl = document.getElementById("overlay");
+function openInv(){ asideEl.classList.add("open"); overlayEl.classList.add("show"); }
+function closeInv(){ asideEl.classList.remove("open"); overlayEl.classList.remove("show"); }
+document.getElementById("btnOpenInv").addEventListener("click", openInv);
+document.getElementById("btnCloseInv").addEventListener("click", closeInv);
+overlayEl.addEventListener("click", closeInv);
+
+/* =========================
+   Botones
+========================= */
+const orderInput = document.getElementById("orderInput");
+
+document.getElementById("btnAdd").addEventListener("click", () => {
+  processInput(orderInput.value);
+  orderInput.value = "";
+  orderInput.focus();
+});
+
+document.getElementById("btnClear").addEventListener("click", () => {
+  ORDER_ROWS = [];
+  renderRows();
+  updateExportTextIfOpen();
+});
+
+document.getElementById("btnCopy").addEventListener("click", () => {
+  const txt = exportText();
+  copyToClipboard(txt);
+});
+
+document.getElementById("btnToggleExport").addEventListener("click", () => {
+  const open = exportBoxEl.style.display === "block";
+  exportBoxEl.style.display = open ? "none" : "block";
+  if(!open){
+    exportTextEl.value = exportText();
+  }
+});
+
+document.getElementById("btnMic").addEventListener("click", (e) => {
+  const btnMic = e.currentTarget;
+
+  if(!recognition){
+    recognition = setupSpeech();
+    if(!recognition){
+      alert("Tu navegador no soporta Web Speech API (prueba Chrome o Edge).");
+      return;
+    }
+
+    let finalText = "";
+    recognition.onresult = (event) => {
+      let interim = "";
+      for(let i = event.resultIndex; i < event.results.length; i++){
+        const txt = event.results[i][0].transcript;
+        if(event.results[i].isFinal) finalText += txt + "\n";
+        else interim += txt;
+      }
+      orderInput.value = (orderInput.value.split(/\n\[dictado\].*/)[0].trimEnd() + "\n" + finalText).trimStart();
+      if(interim) orderInput.value += `\n[dictado] ${interim}`;
+    };
+
+    recognition.onerror = () => {
+      isListening = false;
+      btnMic.classList.remove("primary");
+      btnMic.querySelector(".material-icons").textContent = "mic";
+    };
+    recognition.onend = () => {
+      if(isListening){
+        isListening = false;
+        btnMic.classList.remove("primary");
+        btnMic.querySelector(".material-icons").textContent = "mic";
+      }
+    };
+  }
+
+  if(!isListening){
+    isListening = true;
+    btnMic.classList.add("primary");
+    btnMic.querySelector(".material-icons").textContent = "stop";
+    recognition.start();
+  }else{
+    isListening = false;
+    btnMic.classList.remove("primary");
+    btnMic.querySelector(".material-icons").textContent = "mic";
+    recognition.stop();
+  }
+});
+
+/* =========================
+   Inventario: guardar/reset
+========================= */
+document.getElementById("btnSaveInv").addEventListener("click", () => {
+  const t = invRawEl.value || "";
+  localStorage.setItem(LS_INV_TEXT, t);
+  buildDbFromText(t);
+  renderInventory();
+  alert("Inventario guardado.");
+  closeInv();
+});
+
+document.getElementById("btnResetLearned").addEventListener("click", () => {
+  if(confirm("¿Borrar aprendizaje (artículos nuevos guardados por código en la lista)?")){
+    localStorage.removeItem(LS_LEARNED);
+    const t = localStorage.getItem(LS_INV_TEXT) || "";
+    buildDbFromText(t);
+    renderInventory();
+  }
+});
+
+document.getElementById("btnResetAll").addEventListener("click", () => {
+  if(confirm("RESET TOTAL: vuelve al inventario inicial y borra aprendizaje. ¿Seguro?")){
+    localStorage.removeItem(LS_INV_TEXT);
+    localStorage.removeItem(LS_LEARNED);
+    localStorage.setItem(LS_INV_TEXT, DEFAULT_INV_TEXT);
+    invRawEl.value = DEFAULT_INV_TEXT;
+    buildDbFromText(DEFAULT_INV_TEXT);
+    renderInventory();
+  }
+});
+
+/* =========================
+   Init
+========================= */
+(function init(){
+  let saved = localStorage.getItem(LS_INV_TEXT);
+  if(!saved){
+    saved = DEFAULT_INV_TEXT;
+    localStorage.setItem(LS_INV_TEXT, saved);
+  }
+  invRawEl.value = saved;
+
+  buildDbFromText(saved);
+  renderInventory();
+  renderRows();
+})();
+</script>
+</body>
+</html>
