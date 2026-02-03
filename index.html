@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="es">
 <head>
@@ -120,6 +121,39 @@
     .linklike{color:var(--accent);text-decoration:none;font-weight:800;cursor:pointer}
     .linklike:hover{text-decoration:underline}
 
+    /* ===== Dictado (preview) ===== */
+    .dictCard{
+      margin-top:10px;
+      padding:12px;
+      border:1px dashed rgba(110,168,255,.35);
+      background:rgba(110,168,255,.06);
+      border-radius:14px;
+      display:none;
+    }
+    .dictHead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .dictHead b{letter-spacing:.2px}
+    .dictBadge{
+      padding:6px 10px;border-radius:999px;
+      background:rgba(126,224,195,.12);
+      border:1px solid rgba(126,224,195,.25);
+      font-size:12px;font-weight:900
+    }
+    .dictBox{
+      width:100%;
+      margin-top:10px;
+      min-height:110px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      color:var(--text);
+      padding:10px;
+      font-size:13px;
+      line-height:1.35;
+      outline:none;
+      resize:vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
     /* ===== Lista (tabla responsive real) ===== */
     .list-card{margin-top:14px;padding:12px}
     .head{
@@ -233,10 +267,8 @@
       .btns button{flex:1; justify-content:center}
       .textarea{min-height:130px}
 
-      /* header de columnas no fuerza ancho */
       .gridHeader{display:none;}
 
-      /* cada fila: 2 líneas tipo tabla */
       .gridRow{
         grid-template-columns: 1fr 1fr 1fr 44px;
         grid-template-areas:
@@ -314,11 +346,16 @@
   <main>
     <div class="card input-card">
       <div class="row">
-        <textarea id="orderInput" class="textarea" placeholder="Formato: [cantidad][unidad] [artículo]
+        <textarea id="orderInput" class="textarea" placeholder="Texto:
 Ej: 5c tomate bola
 Ej: 2kg tomate g
-Ej: 10u manzana royal gala 24
-Ej: 5 tomate bola  (sin unidad)"></textarea>
+Ej: 5 tomate bola
+
+Voz (recomendado):
+Di: 'cinco kilos tomate bola'
+Di: 'siguiente'
+Di: 'dos cajas aguacate'
+Di: 'procesar'"></textarea>
 
         <div class="btns">
           <button class="primary" id="btnAdd"><span class="material-icons">add</span>Procesar</button>
@@ -327,12 +364,30 @@ Ej: 5 tomate bola  (sin unidad)"></textarea>
         </div>
       </div>
 
+      <div class="dictCard" id="dictCard">
+        <div class="dictHead">
+          <b><span class="material-icons" style="font-size:18px;vertical-align:-3px">record_voice_over</span> Dictado (lista)</b>
+          <span class="dictBadge" id="dictStatus">ON</span>
+          <span style="color:var(--muted);font-size:12px">
+            Di <b>siguiente</b> para otro artículo · Di <b>procesar</b> / <b>listo</b> para terminar
+          </span>
+          <span style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap">
+            <button class="primary" id="btnDictProcess"><span class="material-icons">playlist_add_check</span>Procesar dictado</button>
+            <button id="btnDictClear"><span class="material-icons">backspace</span>Borrar dictado</button>
+          </span>
+        </div>
+        <textarea id="dictPreview" class="dictBox" readonly></textarea>
+      </div>
+
       <div class="hint">
-        <b>Unidades:</b> se guarda <b>exactamente</b> la unidad que tú escribes. Si no escribes unidad, queda en blanco.<br><br>
+        <b>Voz para muchos artículos:</b> habla así:
+        <br>• “cinco kilos tomate bola” → (lo entiende)
+        <br>• “siguiente” → nuevo artículo (salto de línea)
+        <br>• “procesar” o “listo” → procesa todo
+        <br><br>
         <b>Descripción:</b>
-        • Si <b>NO</b> está en la base → queda <b>exactamente</b> lo que escribes/dictas (código vacío amarillo).<br/>
-        • Si <b>SÍ</b> está en la base → se pone el <b>nombre exacto</b> del inventario.<br/><br>
-        <b>Match estricto:</b> si pones “tomate <b>bola</b>”, tiene que existir “bola” en el artículo.
+        • Si NO está en la base → queda exactamente lo que dices (código vacío amarillo).<br/>
+        • Si SÍ está en la base → pone el nombre exacto del inventario.<br/>
       </div>
 
       <div class="mini">
@@ -696,8 +751,8 @@ const DEFAULT_INV_TEXT = `343\tMINI ESPARRAGO
 /* =========================
    Persistencia
 ========================= */
-const LS_INV_TEXT = "inv_text_v7";
-const LS_LEARNED  = "inv_learned_v7";
+const LS_INV_TEXT = "inv_text_v8";
+const LS_LEARNED  = "inv_learned_v8";
 
 /* =========================
    Helpers
@@ -1126,38 +1181,27 @@ function renderRows(){
 }
 
 /* =========================
-   Entrada pedidos (UNIDADES EXACTAS)
+   Parse líneas texto (números con dígitos)
+   - unidades EXACTAS (no se normalizan)
 ========================= */
 function parseLine(line){
-  const m = line.match(/^\s*(\d+(?:[.,]\d+)?)\s*(.*)\s*$/);
+  const m = line.match(/^\s*(\d+(?:[.,]\d+)?)\s+(.*)\s*$/);
   if(!m) return null;
 
   const qty = m[1].replace(",", ".");
   let rest = (m[2] || "").trim();
   if(!rest) return null;
 
-  // Caso A: "5c ..." / "2kg ..."
-  const glued = rest.match(/^([a-zA-Z]{1,20})\s+(.*)$/);
-  if(glued){
-    const unit = glued[1]; // EXACTO
-    const desc = glued[2].trim();
-    if(!desc) return null;
+  // Caso: "5c ..." / "5kg ..." o "5 kilos ..." (unidad primera palabra)
+  const parts = rest.split(/\s+/);
+  if(parts.length >= 2){
+    const unit = parts[0];                // EXACTO
+    const desc = parts.slice(1).join(" ").trim();
+    // permitimos unidad vacía si el usuario no dijo unidad (pero aquí ya hay palabra)
     return { qty, unit, desc };
   }
 
-  // Caso B: "5 unidad descripcion" (unidad separada)
-  const parts = rest.split(/\s+/);
-  if(parts.length >= 2){
-    const maybeUnit = parts[0];
-    const descTry = parts.slice(1).join(" ").trim();
-    const isUnit = /^[a-zA-Z]{1,24}$/.test(maybeUnit) && !["de","la","el","los","las","y","o"].includes(maybeUnit.toLowerCase());
-    if(isUnit){
-      return { qty, unit: maybeUnit, desc: descTry };
-    }
-  }
-
-  // Caso C: sin unidad
-  return { qty, unit: "", desc: rest };
+  return { qty, unit:"", desc: rest };
 }
 
 function addOrderRow({code, desc, qty, unit, isNew, rawDesc}){
@@ -1230,7 +1274,232 @@ async function copyToClipboard(text){
 }
 
 /* =========================
-   Dictado
+   VOZ: convertir números hablados → dígitos (solo al inicio de línea)
+========================= */
+const NUM_UNITS = new Map([
+  ["cero",0],["un",1],["uno",1],["una",1],["dos",2],["tres",3],["cuatro",4],["cinco",5],
+  ["seis",6],["siete",7],["ocho",8],["nueve",9]
+]);
+const NUM_TEENS = new Map([
+  ["diez",10],["once",11],["doce",12],["trece",13],["catorce",14],["quince",15],
+  ["dieciseis",16],["dieciséis",16],["diecisiete",17],["dieciocho",18],["diecinueve",19]
+]);
+const NUM_TENS = new Map([
+  ["veinte",20],["treinta",30],["cuarenta",40],["cincuenta",50],["sesenta",60],
+  ["setenta",70],["ochenta",80],["noventa",90]
+]);
+function parseSpanishNumberTokens(tokens){
+  // soporta: "veintidos" "veintidós" "treinta y dos" "ciento veinte" "dos coma cinco"
+  let i=0;
+  let total=0;
+  let current=0;
+
+  const get = (t)=> normalize(t);
+
+  // helper veinti*
+  function parseVeinti(t){
+    const x = get(t);
+    if(x === "veintiuno" || x==="veintiun") return 21;
+    if(x === "veintidos" || x==="veintidós") return 22;
+    if(x === "veintitres" || x==="veintitrés") return 23;
+    if(x === "veinticuatro") return 24;
+    if(x === "veinticinco") return 25;
+    if(x === "veintiseis" || x==="veintiséis") return 26;
+    if(x === "veintisiete") return 27;
+    if(x === "veintiocho") return 28;
+    if(x === "veintinueve") return 29;
+    return null;
+  }
+
+  while(i < tokens.length){
+    let t = get(tokens[i]);
+    if(!t) break;
+
+    // decimal
+    if(t === "coma" || t === "punto"){
+      // lo que viene después son dígitos (en palabras o números)
+      i++;
+      let decStr = "";
+      while(i < tokens.length){
+        const z = get(tokens[i]);
+        if(NUM_UNITS.has(z)) decStr += String(NUM_UNITS.get(z));
+        else if(/^\d+$/.test(z)) decStr += z;
+        else break;
+        i++;
+      }
+      const base = total + current;
+      if(decStr.length){
+        return { value: parseFloat(String(base) + "." + decStr), used: i };
+      }
+      return { value: base, used: i };
+    }
+
+    // cientos
+    if(t === "cien") { current += 100; i++; continue; }
+    if(t === "ciento"){ current += 100; i++; continue; }
+    if(t === "doscientos"){ current += 200; i++; continue; }
+    if(t === "trescientos"){ current += 300; i++; continue; }
+    if(t === "cuatrocientos"){ current += 400; i++; continue; }
+    if(t === "quinientos"){ current += 500; i++; continue; }
+    if(t === "seiscientos"){ current += 600; i++; continue; }
+    if(t === "setecientos"){ current += 700; i++; continue; }
+    if(t === "ochocientos"){ current += 800; i++; continue; }
+    if(t === "novecientos"){ current += 900; i++; continue; }
+
+    // veinti*
+    const v20 = parseVeinti(t);
+    if(v20 !== null){ current += v20; i++; continue; }
+
+    // tens
+    if(NUM_TENS.has(t)){
+      current += NUM_TENS.get(t);
+      i++;
+      // opcional "y" + unit
+      if(i < tokens.length && get(tokens[i]) === "y"){
+        i++;
+        if(i < tokens.length){
+          const u = get(tokens[i]);
+          if(NUM_UNITS.has(u)){ current += NUM_UNITS.get(u); i++; }
+        }
+      }
+      continue;
+    }
+
+    // teens
+    if(NUM_TEENS.has(t)){ current += NUM_TEENS.get(t); i++; continue; }
+
+    // units
+    if(NUM_UNITS.has(t)){ current += NUM_UNITS.get(t); i++; continue; }
+
+    // números ya en dígitos
+    if(/^\d+(?:[.,]\d+)?$/.test(t)){ current += parseFloat(t.replace(",", ".")); i++; continue; }
+
+    break; // terminó el número
+  }
+
+  return { value: total + current, used: i };
+}
+
+function convertLeadingSpokenNumberToDigits(line){
+  // Convierte SOLO si al inicio hay número en palabras
+  const raw = line.trim();
+  if(!raw) return raw;
+
+  // Si ya empieza con dígito, lo dejamos
+  if(/^\d/.test(raw)) return raw;
+
+  // tokens
+  const toks = raw.split(/\s+/);
+  const parsed = parseSpanishNumberTokens(toks);
+
+  // si no consumió nada, no es número
+  if(!parsed.used || parsed.used === 0) return raw;
+
+  // requiere que el primer token sea claramente numérico
+  const first = normalize(toks[0]);
+  const looksNumeric = NUM_UNITS.has(first) || NUM_TEENS.has(first) || NUM_TENS.has(first) ||
+                       ["cien","ciento","doscientos","trescientos","cuatrocientos","quinientos","seiscientos","setecientos","ochocientos","novecientos"].includes(first) ||
+                       first.startsWith("veinti");
+  if(!looksNumeric) return raw;
+
+  const rest = toks.slice(parsed.used).join(" ").trim();
+  if(!rest) return raw;
+
+  return `${String(parsed.value)} ${rest}`.replace(/\s+/g," ").trim();
+}
+
+/* =========================
+   Dictado: separadores y procesado por voz
+========================= */
+const dictCard = document.getElementById("dictCard");
+const dictPreview = document.getElementById("dictPreview");
+const btnDictProcess = document.getElementById("btnDictProcess");
+const btnDictClear = document.getElementById("btnDictClear");
+
+let dictationBuffer = "";   // texto acumulado (multi-line)
+let interimBuffer = "";
+
+function setDictUI(on){
+  dictCard.style.display = on ? "block" : "none";
+  document.getElementById("dictStatus").textContent = on ? "ON" : "OFF";
+}
+
+const NUMBER_WORDS_REGEX = "(cero|un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|dieciséis|diecisiete|dieciocho|diecinueve|veinte|treinta|cuarenta|cincuenta|sesenta|setenta|ochenta|noventa|veinti\\w+|cien|ciento|doscientos|trescientos|cuatrocientos|quinientos|seiscientos|setecientos|ochocientos|novecientos)";
+const SEP_Y_REGEX = new RegExp("\\s+y\\s+(?=(\\d|\\b" + NUMBER_WORDS_REGEX + "\\b))","ig");
+
+function normalizeDictationChunk(txt){
+  let t = (txt || "").trim();
+  if(!t) return "";
+
+  // separadores por voz
+  t = t.replace(/\b(siguiente|nuevo|otra)\b/ig, "\n");
+  // "y" como separador solo si después viene un número
+  t = t.replace(SEP_Y_REGEX, "\n");
+
+  // limpiar relleno común al dictar
+  t = t.replace(/\b(de)\b/ig, " de "); // mantiene "de" pero normaliza espacios
+  t = t.replace(/\s+/g, " ").trim();
+
+  // re-separar saltos que metimos
+  t = t.split("\n").map(x => x.trim()).filter(Boolean).join("\n");
+  return t;
+}
+
+function appendDictationFinal(txt){
+  const cleaned = normalizeDictationChunk(txt);
+  if(!cleaned) return;
+
+  // comandos de cierre
+  const hasProcess = /\b(procesar|listo|terminar|finalizar)\b/i.test(cleaned);
+  let withoutCmd = cleaned.replace(/\b(procesar|listo|terminar|finalizar)\b/ig, "").trim();
+
+  if(withoutCmd){
+    // si viene como frase larga, lo dejamos tal cual; el usuario usa "siguiente" para separar
+    if(dictationBuffer && !dictationBuffer.endsWith("\n")) dictationBuffer += "\n";
+    dictationBuffer += withoutCmd;
+  }
+
+  refreshDictPreview();
+
+  if(hasProcess){
+    stopDictation(true); // procesa y apaga
+  }
+}
+
+function refreshDictPreview(){
+  const show = (dictationBuffer + (interimBuffer ? ("\n[...]" + interimBuffer) : "")).trim();
+  dictPreview.value = show;
+}
+
+function clearDictation(){
+  dictationBuffer = "";
+  interimBuffer = "";
+  refreshDictPreview();
+}
+
+function processDictationBuffer(){
+  const raw = dictationBuffer.trim();
+  if(!raw) return;
+
+  // cada línea = un artículo
+  const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  const converted = lines.map(line => convertLeadingSpokenNumberToDigits(line)).join("\n");
+
+  processInput(converted);
+
+  // limpiar buffer después de procesar
+  clearDictation();
+}
+
+btnDictProcess.addEventListener("click", () => {
+  processDictationBuffer();
+});
+btnDictClear.addEventListener("click", () => {
+  clearDictation();
+});
+
+/* =========================
+   Dictado Web Speech API
 ========================= */
 let recognition = null;
 let isListening = false;
@@ -1243,6 +1512,71 @@ function setupSpeech(){
   r.interimResults = true;
   r.continuous = true;
   return r;
+}
+
+function startDictation(){
+  if(!recognition){
+    recognition = setupSpeech();
+    if(!recognition){
+      alert("Tu navegador no soporta dictado (prueba Chrome/Edge).");
+      return false;
+    }
+
+    recognition.onresult = (event) => {
+      let finalText = "";
+      let interim = "";
+
+      for(let i = event.resultIndex; i < event.results.length; i++){
+        const txt = event.results[i][0].transcript;
+        if(event.results[i].isFinal) finalText += txt + " ";
+        else interim += txt;
+      }
+
+      interimBuffer = normalizeDictationChunk(interim);
+      refreshDictPreview();
+
+      if(finalText.trim()){
+        appendDictationFinal(finalText);
+        interimBuffer = "";
+        refreshDictPreview();
+      }
+    };
+
+    recognition.onerror = () => {
+      isListening = false;
+      setDictUI(false);
+      const btn = document.getElementById("btnMic");
+      btn.classList.remove("primary");
+      btn.querySelector(".material-icons").textContent = "mic";
+    };
+
+    recognition.onend = () => {
+      // Si el dictado se corta solo, y hay buffer, procesamos automático
+      if(isListening){
+        // (algunos móviles disparan onend aunque siga “escuchando”; intentamos reanudar)
+        try{ recognition.start(); return; }catch{}
+      }else{
+        if(dictationBuffer.trim()){
+          // auto-proceso al terminar
+          processDictationBuffer();
+        }
+      }
+    };
+  }
+
+  isListening = true;
+  setDictUI(true);
+  try{ recognition.start(); }catch{}
+  return true;
+}
+
+function stopDictation(processNow){
+  isListening = false;
+  setDictUI(false);
+  try{ recognition.stop(); }catch{}
+  if(processNow){
+    processDictationBuffer();
+  }
 }
 
 /* =========================
@@ -1288,50 +1622,17 @@ document.getElementById("btnToggleExport").addEventListener("click", () => {
 
 document.getElementById("btnMic").addEventListener("click", (e) => {
   const btnMic = e.currentTarget;
-
-  if(!recognition){
-    recognition = setupSpeech();
-    if(!recognition){
-      alert("Tu navegador no soporta Web Speech API (prueba Chrome o Edge).");
-      return;
-    }
-
-    let finalText = "";
-    recognition.onresult = (event) => {
-      let interim = "";
-      for(let i = event.resultIndex; i < event.results.length; i++){
-        const txt = event.results[i][0].transcript;
-        if(event.results[i].isFinal) finalText += txt + "\n";
-        else interim += txt;
-      }
-      orderInput.value = (orderInput.value.split(/\n\[dictado\].*/)[0].trimEnd() + "\n" + finalText).trimStart();
-      if(interim) orderInput.value += `\n[dictado] ${interim}`;
-    };
-
-    recognition.onerror = () => {
-      isListening = false;
-      btnMic.classList.remove("primary");
-      btnMic.querySelector(".material-icons").textContent = "mic";
-    };
-    recognition.onend = () => {
-      if(isListening){
-        isListening = false;
-        btnMic.classList.remove("primary");
-        btnMic.querySelector(".material-icons").textContent = "mic";
-      }
-    };
-  }
-
   if(!isListening){
-    isListening = true;
-    btnMic.classList.add("primary");
-    btnMic.querySelector(".material-icons").textContent = "stop";
-    recognition.start();
+    const ok = startDictation();
+    if(ok){
+      btnMic.classList.add("primary");
+      btnMic.querySelector(".material-icons").textContent = "stop";
+    }
   }else{
-    isListening = false;
     btnMic.classList.remove("primary");
     btnMic.querySelector(".material-icons").textContent = "mic";
-    recognition.stop();
+    // al parar, auto-procesa lo acumulado
+    stopDictation(true);
   }
 });
 
