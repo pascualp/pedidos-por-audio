@@ -343,8 +343,7 @@ Ej: 2kg tomate g
 
 Voz (lista larga):
 Di: 'una caja de tomate bola'
-Di: 'siguiente'
-Di: 'dos kilos tomate g'
+Di: 'una caja de tomate g'
 Di: 'procesar'"></textarea>
 
         <div class="btns">
@@ -359,7 +358,7 @@ Di: 'procesar'"></textarea>
           <b><span class="material-icons" style="font-size:18px;vertical-align:-3px">record_voice_over</span> Dictado (lista)</b>
           <span class="dictBadge" id="dictStatus">ON</span>
           <span style="color:var(--muted);font-size:12px">
-            Di <b>siguiente</b> para otro artículo · Di <b>procesar</b> / <b>listo</b> para terminar
+            Di <b>procesar</b> / <b>listo</b> para terminar
           </span>
           <span style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap">
             <button class="primary" id="btnDictProcess"><span class="material-icons">playlist_add_check</span>Procesar dictado</button>
@@ -370,8 +369,8 @@ Di: 'procesar'"></textarea>
       </div>
 
       <div class="hint">
-        <b>ARREGLADO:</b> Si el navegador va ampliando “una caja” → “una caja de” → “una caja de tomate…”
-        ahora se <b>reemplaza</b> la última línea (no se duplica).
+        <b>ARREGLADO:</b> Si el navegador junta varios artículos en una frase (“una caja … una caja …”),
+        el sistema ahora <b>los separa en líneas</b> automáticamente.
       </div>
 
       <div class="mini">
@@ -732,11 +731,8 @@ const DEFAULT_INV_TEXT = `343\tMINI ESPARRAGO
 9979\tGARRAFA SUC TARONJA 5L
 7253\tCIRUELA ROJA MALLORCA`;
 
-/* =========================
-   Persistencia
-========================= */
-const LS_INV_TEXT = "inv_text_v10";
-const LS_LEARNED  = "inv_learned_v10";
+const LS_INV_TEXT = "inv_text_v11";
+const LS_LEARNED  = "inv_learned_v11";
 
 /* =========================
    Helpers
@@ -1145,7 +1141,6 @@ function parseLine(line){
   const parts = rest.split(/\s+/);
   if(parts.length >= 2){
     const unit = parts[0];
-    // quitar "de" / "del" justo después de unidad (para voz: "caja de tomate bola")
     let desc = parts.slice(1).join(" ").trim();
     desc = desc.replace(/^d(e|el)\s+/i, "").trim();
     return { qty, unit, desc };
@@ -1165,8 +1160,77 @@ function addOrderRow({code, desc, qty, unit, isNew, rawDesc}){
   });
 }
 
+/* =========================
+   NUEVO: separar “varios artículos” en una sola frase dictada
+   Detecta repeticiones de [cantidad + unidad] dentro de la línea.
+========================= */
+const UNIT_WORDS = new Set([
+  "kg","kilo","kilos","k","gr","g","c","caja","cajas","bandeja","bandejas","manojo","manojos",
+  "ud","uds","u","x"
+]);
+
+const NUM_WORDS = new Set([
+  "cero","un","uno","una","dos","tres","cuatro","cinco","seis","siete","ocho","nueve",
+  "diez","once","doce","trece","catorce","quince","dieciseis","dieciséis","diecisiete","dieciocho","diecinueve",
+  "veinte","treinta","cuarenta","cincuenta","sesenta","setenta","ochenta","noventa",
+  "cien","ciento","doscientos","trescientos","cuatrocientos","quinientos","seiscientos","setecientos","ochocientos","novecientos"
+]);
+
+function isQtyToken(t){
+  const n = normalize(t);
+  if(!n) return false;
+  if(/^\d+(?:[.,]\d+)?$/.test(n)) return true;
+  if(NUM_WORDS.has(n)) return true;
+  if(n.startsWith("veinti")) return true;
+  return false;
+}
+function isUnitToken(t){
+  const n = normalize(t);
+  if(!n) return false;
+  return UNIT_WORDS.has(n);
+}
+
+function splitMultiItemsLine(line){
+  const raw = (line || "").trim();
+  if(!raw) return [];
+  const toks = raw.split(/\s+/);
+
+  const segments = [];
+  let cur = [];
+
+  for(let i=0;i<toks.length;i++){
+    const t = toks[i];
+    const next = toks[i+1];
+
+    const looksLikeStart = isQtyToken(t) && isUnitToken(next);
+
+    if(looksLikeStart && cur.length > 0){
+      segments.push(cur.join(" ").trim());
+      cur = [t];
+    }else{
+      cur.push(t);
+    }
+  }
+
+  if(cur.length) segments.push(cur.join(" ").trim());
+  return segments.filter(Boolean);
+}
+
+function splitMultiItemsText(text){
+  const lines = (text || "").split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const out = [];
+  for(const line of lines){
+    const parts = splitMultiItemsLine(line);
+    for(const p of parts) out.push(p);
+  }
+  return out.join("\n");
+}
+
 function processInput(text){
-  const lines = (text || "").split(/\r?\n|;/).map(s => s.trim()).filter(Boolean);
+  // EXTRA: si alguien pega “una caja ... una caja ...” también lo corta
+  const fixed = splitMultiItemsText(text);
+
+  const lines = (fixed || "").split(/\r?\n|;/).map(s => s.trim()).filter(Boolean);
   for(const line of lines){
     const parsed = parseLine(line);
     if(!parsed) continue;
@@ -1331,18 +1395,18 @@ function convertLeadingSpokenNumberToDigits(line){
 }
 
 /* =========================
-   Dictado (FIX: no repetir / reemplazar crecimientos)
+   Dictado (no repetir / separar multi-items)
 ========================= */
 const dictCard = document.getElementById("dictCard");
 const dictPreview = document.getElementById("dictPreview");
 const btnDictProcess = document.getElementById("btnDictProcess");
 const btnDictClear = document.getElementById("btnDictClear");
 
-let dictLines = [""];       // <- líneas del dictado
+let dictLines = [""];
 let interimBuffer = "";
 
-let processedFinalIndices = new Set(); // <- cada final se procesa 1 vez
-let recentFinals = [];               // anti-duplicados por texto+tiempo
+let processedFinalIndices = new Set();
+let recentFinals = [];
 
 function isDuplicateFinal(txt){
   const t = normalize(txt);
@@ -1368,14 +1432,8 @@ function normalizeDictationChunk(txt){
   let t = (txt || "").trim();
   if(!t) return "";
 
-  // separadores por voz
-  t = t.replace(/\b(siguiente|nuevo|otra)\b/ig, "\n");
-
-  // "y" como separador SOLO si después viene un número
   t = t.replace(SEP_Y_REGEX, "\n");
-
   t = t.replace(/\s+/g, " ").trim();
-
   t = t.split("\n").map(x => x.trim()).filter(Boolean).join("\n");
   return t;
 }
@@ -1394,7 +1452,6 @@ function clearDictation(){
   refreshDictPreview();
 }
 
-// añade texto a la ÚLTIMA línea, pero si es "crecimiento" la reemplaza
 function appendOrReplaceToLastLine(piece){
   if(!piece) return;
 
@@ -1408,21 +1465,17 @@ function appendOrReplaceToLastLine(piece){
   const curN = normalize(cur);
   const pN = normalize(piece);
 
-  // si lo nuevo es una ampliación: reemplaza
   if(pN.startsWith(curN) && pN.length > curN.length){
     dictLines[lastIdx] = piece;
     return;
   }
-  // si lo nuevo es más corto pero contenido en lo actual: ignorar
   if(curN.startsWith(pN) && curN.length > pN.length){
     return;
   }
-  // si es igual: ignorar
   if(curN === pN){
     return;
   }
 
-  // si no es ampliación: concatena en la misma línea
   dictLines[lastIdx] = (cur + " " + piece).replace(/\s+/g," ").trim();
 }
 
@@ -1436,7 +1489,6 @@ function appendToDictLines(cleaned){
     return;
   }
 
-  // si hay saltos: cada parte es una línea nueva
   for(const p of parts){
     const lastIdx = dictLines.length - 1;
     if(!(dictLines[lastIdx] || "").trim()){
@@ -1451,7 +1503,11 @@ function processDictationBuffer(){
   const raw = dictLines.map(x => x.trim()).filter(Boolean).join("\n").trim();
   if(!raw) return;
 
-  const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  // 1) cortar multi-items dentro de una misma línea
+  const cut = splitMultiItemsText(raw);
+
+  // 2) convertir números hablados SOLO al principio de cada línea
+  const lines = cut.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
   const converted = lines.map(line => convertLeadingSpokenNumberToDigits(line)).join("\n");
 
   processInput(converted);
@@ -1496,7 +1552,6 @@ function startDictation(){
 
           let cleaned = normalizeDictationChunk(txt);
 
-          // comando procesar/listo
           const hasProcess = /\b(procesar|listo|terminar|finalizar)\b/i.test(cleaned);
           cleaned = cleaned.replace(/\b(procesar|listo|terminar|finalizar)\b/ig, "").trim();
 
@@ -1671,4 +1726,6 @@ document.getElementById("btnResetAll").addEventListener("click", () => {
 </script>
 </body>
 </html>
+
+
 
