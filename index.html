@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="es">
 <head>
@@ -35,7 +34,6 @@
       box-shadow:0 0 0 6px rgba(110,168,255,.10)
     }
 
-    /* ===== Topbar móvil ===== */
     .topbar{
       display:none;
       position:sticky; top:0; z-index:50;
@@ -52,7 +50,6 @@
       border:1px solid rgba(110,168,255,.25);font-size:12px
     }
 
-    /* ===== Layout ===== */
     .app{display:flex;min-height:100vh}
     aside{
       width:390px; min-width:340px;
@@ -69,7 +66,6 @@
       border-radius:var(--radius)
     }
 
-    /* ===== Inventario UI ===== */
     aside header{padding:18px 18px 10px;border-bottom:1px solid var(--line)}
     aside header .title{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.3px;font-size:18px}
     aside header .sub{margin-top:6px;color:var(--muted);font-size:12px;line-height:1.35}
@@ -97,7 +93,6 @@
     .inv-item .meta{margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:12px}
     .chip{border:1px solid var(--line);background:rgba(255,255,255,.03);padding:4px 8px;border-radius:999px}
 
-    /* ===== Input pedidos ===== */
     .input-card{padding:14px}
     .row{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
     .textarea{
@@ -121,7 +116,6 @@
     .linklike{color:var(--accent);text-decoration:none;font-weight:800;cursor:pointer}
     .linklike:hover{text-decoration:underline}
 
-    /* ===== Dictado (preview) ===== */
     .dictCard{
       margin-top:10px;
       padding:12px;
@@ -154,7 +148,6 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
 
-    /* ===== Lista (tabla responsive real) ===== */
     .list-card{margin-top:14px;padding:12px}
     .head{
       display:flex;gap:10px;align-items:center;flex-wrap:wrap;
@@ -243,7 +236,6 @@
       display:none
     }
 
-    /* ===== Drawer móvil ===== */
     .overlay{
       position:fixed; inset:0; background:rgba(0,0,0,.45);
       opacity:0; pointer-events:none; transition:opacity .18s ease;
@@ -251,7 +243,6 @@
     }
     .overlay.show{opacity:1; pointer-events:auto}
 
-    /* ===== Mobile real: no scroll horizontal, “tabla” en 2 líneas ===== */
     @media (max-width:980px){
       .topbar{display:block}
       main{padding:14px}
@@ -260,7 +251,7 @@
         transform: translateX(105%);
         transition: transform .18s ease;
         z-index:100;
-        box-shadow: var(--shadow);
+        box-shadow: 0 10px 30px rgba(0,0,0,.35);
         border-right:0;
       }
       aside.open{transform: translateX(0)}
@@ -349,12 +340,11 @@
         <textarea id="orderInput" class="textarea" placeholder="Texto:
 Ej: 5c tomate bola
 Ej: 2kg tomate g
-Ej: 5 tomate bola
 
-Voz (recomendado):
-Di: 'cinco kilos tomate bola'
+Voz (lista larga):
+Di: 'una caja de tomate bola'
 Di: 'siguiente'
-Di: 'dos cajas aguacate'
+Di: 'dos kilos tomate g'
 Di: 'procesar'"></textarea>
 
         <div class="btns">
@@ -380,14 +370,8 @@ Di: 'procesar'"></textarea>
       </div>
 
       <div class="hint">
-        <b>Voz para muchos artículos:</b> habla así:
-        <br>• “cinco kilos tomate bola” → (lo entiende)
-        <br>• “siguiente” → nuevo artículo (salto de línea)
-        <br>• “procesar” o “listo” → procesa todo
-        <br><br>
-        <b>Descripción:</b>
-        • Si NO está en la base → queda exactamente lo que dices (código vacío amarillo).<br/>
-        • Si SÍ está en la base → pone el nombre exacto del inventario.<br/>
+        <b>ARREGLADO:</b> Si el navegador va ampliando “una caja” → “una caja de” → “una caja de tomate…”
+        ahora se <b>reemplaza</b> la última línea (no se duplica).
       </div>
 
       <div class="mini">
@@ -751,8 +735,8 @@ const DEFAULT_INV_TEXT = `343\tMINI ESPARRAGO
 /* =========================
    Persistencia
 ========================= */
-const LS_INV_TEXT = "inv_text_v8";
-const LS_LEARNED  = "inv_learned_v8";
+const LS_INV_TEXT = "inv_text_v10";
+const LS_LEARNED  = "inv_learned_v10";
 
 /* =========================
    Helpers
@@ -776,9 +760,6 @@ function escapeHtml(s){
     .replaceAll('"',"&quot;").replaceAll("'","&#039;");
 }
 
-/* =========================
-   Base desde nombre (AGRUPA, NO CAMBIA CÓDIGOS)
-========================= */
 function baseFromName(name){
   let s = (name ?? "").toString().trim();
   s = s.replace(/\bcalibre\s+\d+\b/ig, "").trim();
@@ -787,9 +768,6 @@ function baseFromName(name){
   return s.replace(/\s+/g, " ").trim();
 }
 
-/* =========================
-   Parse inventario pegado: CODE + NAME
-========================= */
 function parseInventoryText(text){
   const lines = (text || "").split(/\r?\n/).map(x => x.trim()).filter(Boolean);
   const rows = [];
@@ -804,9 +782,6 @@ function parseInventoryText(text){
   return rows;
 }
 
-/* =========================
-   Learned
-========================= */
 function loadLearned(){
   try{
     const raw = localStorage.getItem(LS_LEARNED);
@@ -819,9 +794,6 @@ function saveLearned(arr){
   localStorage.setItem(LS_LEARNED, JSON.stringify(arr));
 }
 
-/* =========================
-   DB e Index
-========================= */
 let DB = [];
 let INDEX = null;
 let IDF = null;
@@ -895,11 +867,8 @@ function overlapScore(descSet, candSet){
   return s;
 }
 
-/* =========================
-   MATCHING ESTRICTO (tomate bola ≠ tomate g)
-========================= */
 const STOP_TOKENS = new Set([
-  "de","la","el","y","o","x","por","con","sin",
+  "de","del","la","el","y","o","x","por","con","sin",
   "kg","k","gr","uds","ud","u","c","caja","bandeja","manojo",
   "mallorca","extra","primera","segunda","tercera","cuarta",
   "calibre","mm","gama"
@@ -933,7 +902,7 @@ function findBestMatch(desc){
   const dSet = new Set(dTokens);
 
   const req = getRequiredTokens(desc);
-  const requireAll = req.length >= 2; // si hay 2+ tokens relevantes, deben estar
+  const requireAll = req.length >= 2;
 
   let best=null, bestScore=-1;
   let secondScore=-1;
@@ -976,11 +945,6 @@ function findBestMatch(desc){
   return best;
 }
 
-/* =========================
-   Variantes:
-   - si el usuario incluye número (20/24/26/750/1100...) intenta esa variante
-   - si no, usa el código más alto del grupo
-========================= */
 function pickVariantByUserHint(entry, userDesc){
   const nums = (userDesc.match(/\d+/g) || []).map(n => parseInt(n,10)).filter(Number.isFinite);
 
@@ -999,9 +963,6 @@ function pickVariantByUserHint(entry, userDesc){
   return v2 || entry.variants[0] || null;
 }
 
-/* =========================
-   UI: Inventario
-========================= */
 const invListEl = document.getElementById("invList");
 const invSearchEl = document.getElementById("invSearch");
 const invCountEl = document.getElementById("invCount");
@@ -1035,14 +996,11 @@ function renderInventory(){
 }
 invSearchEl.addEventListener("input", renderInventory);
 
-/* =========================
-   Pedidos (tabla responsive)
-========================= */
 const rowsEl = document.getElementById("rows");
 const exportBoxEl = document.getElementById("exportBox");
 const exportTextEl = document.getElementById("exportText");
 
-let ORDER_ROWS = []; // {id, code, desc, qty, unit, isNew, rawDesc}
+let ORDER_ROWS = [];
 
 function renderRows(){
   rowsEl.innerHTML = "";
@@ -1104,7 +1062,6 @@ function renderRows(){
     qtyEl.addEventListener("input", syncBack);
     unitEl.addEventListener("input", syncBack);
 
-    // Autocompletar por descripción si está amarillo y código vacío
     descEl.addEventListener("blur", () => {
       const codeVal = (codeEl.value || "").trim();
       const isMissing = codeEl.classList.contains("code-missing");
@@ -1131,7 +1088,6 @@ function renderRows(){
       updateExportTextIfOpen();
     });
 
-    // Aprendizaje: si estaba amarillo y escribes código => aprende
     codeEl.addEventListener("blur", () => {
       const codeVal = (codeEl.value || "").trim();
       const isMissing = codeEl.classList.contains("code-missing");
@@ -1169,7 +1125,6 @@ function renderRows(){
       updateExportTextIfOpen();
     });
 
-    // delete
     wrap.querySelector('[data-role="del"]').addEventListener("click", () => {
       ORDER_ROWS = ORDER_ROWS.filter(x => x.id !== r.id);
       renderRows();
@@ -1179,11 +1134,6 @@ function renderRows(){
     rowsEl.appendChild(wrap);
   }
 }
-
-/* =========================
-   Parse líneas texto (números con dígitos)
-   - unidades EXACTAS (no se normalizan)
-========================= */
 function parseLine(line){
   const m = line.match(/^\s*(\d+(?:[.,]\d+)?)\s+(.*)\s*$/);
   if(!m) return null;
@@ -1192,15 +1142,14 @@ function parseLine(line){
   let rest = (m[2] || "").trim();
   if(!rest) return null;
 
-  // Caso: "5c ..." / "5kg ..." o "5 kilos ..." (unidad primera palabra)
   const parts = rest.split(/\s+/);
   if(parts.length >= 2){
-    const unit = parts[0];                // EXACTO
-    const desc = parts.slice(1).join(" ").trim();
-    // permitimos unidad vacía si el usuario no dijo unidad (pero aquí ya hay palabra)
+    const unit = parts[0];
+    // quitar "de" / "del" justo después de unidad (para voz: "caja de tomate bola")
+    let desc = parts.slice(1).join(" ").trim();
+    desc = desc.replace(/^d(e|el)\s+/i, "").trim();
     return { qty, unit, desc };
   }
-
   return { qty, unit:"", desc: rest };
 }
 
@@ -1240,9 +1189,6 @@ function processInput(text){
   updateExportTextIfOpen();
 }
 
-/* =========================
-   Export WhatsApp
-========================= */
 function exportText(){
   const lines = [];
   lines.push("CODIGO\tDESCRIPCION\tCANTIDAD\tUNIDAD");
@@ -1274,7 +1220,7 @@ async function copyToClipboard(text){
 }
 
 /* =========================
-   VOZ: convertir números hablados → dígitos (solo al inicio de línea)
+   Números hablados → dígitos (inicio de línea)
 ========================= */
 const NUM_UNITS = new Map([
   ["cero",0],["un",1],["uno",1],["una",1],["dos",2],["tres",3],["cuatro",4],["cinco",5],
@@ -1289,14 +1235,9 @@ const NUM_TENS = new Map([
   ["setenta",70],["ochenta",80],["noventa",90]
 ]);
 function parseSpanishNumberTokens(tokens){
-  // soporta: "veintidos" "veintidós" "treinta y dos" "ciento veinte" "dos coma cinco"
-  let i=0;
-  let total=0;
-  let current=0;
-
+  let i=0, total=0, current=0;
   const get = (t)=> normalize(t);
 
-  // helper veinti*
   function parseVeinti(t){
     const x = get(t);
     if(x === "veintiuno" || x==="veintiun") return 21;
@@ -1315,9 +1256,7 @@ function parseSpanishNumberTokens(tokens){
     let t = get(tokens[i]);
     if(!t) break;
 
-    // decimal
     if(t === "coma" || t === "punto"){
-      // lo que viene después son dígitos (en palabras o números)
       i++;
       let decStr = "";
       while(i < tokens.length){
@@ -1334,7 +1273,6 @@ function parseSpanishNumberTokens(tokens){
       return { value: base, used: i };
     }
 
-    // cientos
     if(t === "cien") { current += 100; i++; continue; }
     if(t === "ciento"){ current += 100; i++; continue; }
     if(t === "doscientos"){ current += 200; i++; continue; }
@@ -1346,15 +1284,12 @@ function parseSpanishNumberTokens(tokens){
     if(t === "ochocientos"){ current += 800; i++; continue; }
     if(t === "novecientos"){ current += 900; i++; continue; }
 
-    // veinti*
     const v20 = parseVeinti(t);
     if(v20 !== null){ current += v20; i++; continue; }
 
-    // tens
     if(NUM_TENS.has(t)){
       current += NUM_TENS.get(t);
       i++;
-      // opcional "y" + unit
       if(i < tokens.length && get(tokens[i]) === "y"){
         i++;
         if(i < tokens.length){
@@ -1365,59 +1300,61 @@ function parseSpanishNumberTokens(tokens){
       continue;
     }
 
-    // teens
     if(NUM_TEENS.has(t)){ current += NUM_TEENS.get(t); i++; continue; }
-
-    // units
     if(NUM_UNITS.has(t)){ current += NUM_UNITS.get(t); i++; continue; }
 
-    // números ya en dígitos
     if(/^\d+(?:[.,]\d+)?$/.test(t)){ current += parseFloat(t.replace(",", ".")); i++; continue; }
 
-    break; // terminó el número
+    break;
   }
 
   return { value: total + current, used: i };
 }
-
 function convertLeadingSpokenNumberToDigits(line){
-  // Convierte SOLO si al inicio hay número en palabras
   const raw = line.trim();
   if(!raw) return raw;
-
-  // Si ya empieza con dígito, lo dejamos
   if(/^\d/.test(raw)) return raw;
 
-  // tokens
   const toks = raw.split(/\s+/);
   const parsed = parseSpanishNumberTokens(toks);
-
-  // si no consumió nada, no es número
   if(!parsed.used || parsed.used === 0) return raw;
 
-  // requiere que el primer token sea claramente numérico
   const first = normalize(toks[0]);
   const looksNumeric = NUM_UNITS.has(first) || NUM_TEENS.has(first) || NUM_TENS.has(first) ||
-                       ["cien","ciento","doscientos","trescientos","cuatrocientos","quinientos","seiscientos","setecientos","ochocientos","novecientos"].includes(first) ||
-                       first.startsWith("veinti");
+    ["cien","ciento","doscientos","trescientos","cuatrocientos","quinientos","seiscientos","setecientos","ochocientos","novecientos"].includes(first) ||
+    first.startsWith("veinti");
   if(!looksNumeric) return raw;
 
   const rest = toks.slice(parsed.used).join(" ").trim();
   if(!rest) return raw;
-
   return `${String(parsed.value)} ${rest}`.replace(/\s+/g," ").trim();
 }
 
 /* =========================
-   Dictado: separadores y procesado por voz
+   Dictado (FIX: no repetir / reemplazar crecimientos)
 ========================= */
 const dictCard = document.getElementById("dictCard");
 const dictPreview = document.getElementById("dictPreview");
 const btnDictProcess = document.getElementById("btnDictProcess");
 const btnDictClear = document.getElementById("btnDictClear");
 
-let dictationBuffer = "";   // texto acumulado (multi-line)
+let dictLines = [""];       // <- líneas del dictado
 let interimBuffer = "";
+
+let processedFinalIndices = new Set(); // <- cada final se procesa 1 vez
+let recentFinals = [];               // anti-duplicados por texto+tiempo
+
+function isDuplicateFinal(txt){
+  const t = normalize(txt);
+  const now = Date.now();
+  recentFinals = recentFinals.filter(x => now - x.ts < 2500);
+  const dup = recentFinals.some(x => x.t === t);
+  if(!dup){
+    recentFinals.push({t, ts: now});
+    if(recentFinals.length > 8) recentFinals.shift();
+  }
+  return dup;
+}
 
 function setDictUI(on){
   dictCard.style.display = on ? "block" : "none";
@@ -1433,76 +1370,100 @@ function normalizeDictationChunk(txt){
 
   // separadores por voz
   t = t.replace(/\b(siguiente|nuevo|otra)\b/ig, "\n");
-  // "y" como separador solo si después viene un número
+
+  // "y" como separador SOLO si después viene un número
   t = t.replace(SEP_Y_REGEX, "\n");
 
-  // limpiar relleno común al dictar
-  t = t.replace(/\b(de)\b/ig, " de "); // mantiene "de" pero normaliza espacios
   t = t.replace(/\s+/g, " ").trim();
 
-  // re-separar saltos que metimos
   t = t.split("\n").map(x => x.trim()).filter(Boolean).join("\n");
   return t;
 }
 
-function appendDictationFinal(txt){
-  const cleaned = normalizeDictationChunk(txt);
-  if(!cleaned) return;
-
-  // comandos de cierre
-  const hasProcess = /\b(procesar|listo|terminar|finalizar)\b/i.test(cleaned);
-  let withoutCmd = cleaned.replace(/\b(procesar|listo|terminar|finalizar)\b/ig, "").trim();
-
-  if(withoutCmd){
-    // si viene como frase larga, lo dejamos tal cual; el usuario usa "siguiente" para separar
-    if(dictationBuffer && !dictationBuffer.endsWith("\n")) dictationBuffer += "\n";
-    dictationBuffer += withoutCmd;
-  }
-
-  refreshDictPreview();
-
-  if(hasProcess){
-    stopDictation(true); // procesa y apaga
-  }
-}
-
 function refreshDictPreview(){
-  const show = (dictationBuffer + (interimBuffer ? ("\n[...]" + interimBuffer) : "")).trim();
+  const base = dictLines.map(x => x.trim()).filter(Boolean).join("\n");
+  const show = (base + (interimBuffer ? ("\n[...]" + interimBuffer) : "")).trim();
   dictPreview.value = show;
 }
 
 function clearDictation(){
-  dictationBuffer = "";
+  dictLines = [""];
   interimBuffer = "";
+  processedFinalIndices = new Set();
+  recentFinals = [];
   refreshDictPreview();
 }
 
+// añade texto a la ÚLTIMA línea, pero si es "crecimiento" la reemplaza
+function appendOrReplaceToLastLine(piece){
+  if(!piece) return;
+
+  const lastIdx = dictLines.length - 1;
+  const cur = (dictLines[lastIdx] || "").trim();
+  if(!cur){
+    dictLines[lastIdx] = piece;
+    return;
+  }
+
+  const curN = normalize(cur);
+  const pN = normalize(piece);
+
+  // si lo nuevo es una ampliación: reemplaza
+  if(pN.startsWith(curN) && pN.length > curN.length){
+    dictLines[lastIdx] = piece;
+    return;
+  }
+  // si lo nuevo es más corto pero contenido en lo actual: ignorar
+  if(curN.startsWith(pN) && curN.length > pN.length){
+    return;
+  }
+  // si es igual: ignorar
+  if(curN === pN){
+    return;
+  }
+
+  // si no es ampliación: concatena en la misma línea
+  dictLines[lastIdx] = (cur + " " + piece).replace(/\s+/g," ").trim();
+}
+
+function appendToDictLines(cleaned){
+  if(!cleaned) return;
+  const parts = cleaned.split("\n").map(x => x.trim()).filter(Boolean);
+  if(!parts.length) return;
+
+  if(parts.length === 1){
+    appendOrReplaceToLastLine(parts[0]);
+    return;
+  }
+
+  // si hay saltos: cada parte es una línea nueva
+  for(const p of parts){
+    const lastIdx = dictLines.length - 1;
+    if(!(dictLines[lastIdx] || "").trim()){
+      dictLines[lastIdx] = p;
+    }else{
+      dictLines.push(p);
+    }
+  }
+}
+
 function processDictationBuffer(){
-  const raw = dictationBuffer.trim();
+  const raw = dictLines.map(x => x.trim()).filter(Boolean).join("\n").trim();
   if(!raw) return;
 
-  // cada línea = un artículo
   const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
   const converted = lines.map(line => convertLeadingSpokenNumberToDigits(line)).join("\n");
 
   processInput(converted);
-
-  // limpiar buffer después de procesar
   clearDictation();
 }
 
-btnDictProcess.addEventListener("click", () => {
-  processDictationBuffer();
-});
-btnDictClear.addEventListener("click", () => {
-  clearDictation();
-});
+btnDictProcess.addEventListener("click", processDictationBuffer);
+btnDictClear.addEventListener("click", clearDictation);
 
-/* =========================
-   Dictado Web Speech API
-========================= */
 let recognition = null;
 let isListening = false;
+let stoppingRequestedProcess = false;
 
 function setupSpeech(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1523,23 +1484,40 @@ function startDictation(){
     }
 
     recognition.onresult = (event) => {
-      let finalText = "";
-      let interim = "";
+      let lastInterim = "";
 
       for(let i = event.resultIndex; i < event.results.length; i++){
-        const txt = event.results[i][0].transcript;
-        if(event.results[i].isFinal) finalText += txt + " ";
-        else interim += txt;
+        const res = event.results[i];
+        const txt = (res[0].transcript || "").trim();
+
+        if(res.isFinal){
+          if(processedFinalIndices.has(i)) continue;
+          processedFinalIndices.add(i);
+
+          let cleaned = normalizeDictationChunk(txt);
+
+          // comando procesar/listo
+          const hasProcess = /\b(procesar|listo|terminar|finalizar)\b/i.test(cleaned);
+          cleaned = cleaned.replace(/\b(procesar|listo|terminar|finalizar)\b/ig, "").trim();
+
+          if(cleaned && !isDuplicateFinal(cleaned)){
+            appendToDictLines(cleaned);
+          }
+
+          interimBuffer = "";
+          refreshDictPreview();
+
+          if(hasProcess){
+            stopDictation(true);
+            return;
+          }
+        }else{
+          lastInterim = txt;
+        }
       }
 
-      interimBuffer = normalizeDictationChunk(interim);
+      interimBuffer = normalizeDictationChunk(lastInterim);
       refreshDictPreview();
-
-      if(finalText.trim()){
-        appendDictationFinal(finalText);
-        interimBuffer = "";
-        refreshDictPreview();
-      }
     };
 
     recognition.onerror = () => {
@@ -1551,13 +1529,16 @@ function startDictation(){
     };
 
     recognition.onend = () => {
-      // Si el dictado se corta solo, y hay buffer, procesamos automático
+      if(stoppingRequestedProcess){
+        stoppingRequestedProcess = false;
+        return;
+      }
+
       if(isListening){
-        // (algunos móviles disparan onend aunque siga “escuchando”; intentamos reanudar)
         try{ recognition.start(); return; }catch{}
       }else{
-        if(dictationBuffer.trim()){
-          // auto-proceso al terminar
+        const raw = dictLines.map(x => x.trim()).filter(Boolean).join("\n").trim();
+        if(raw){
           processDictationBuffer();
         }
       }
@@ -1573,7 +1554,13 @@ function startDictation(){
 function stopDictation(processNow){
   isListening = false;
   setDictUI(false);
+
+  if(processNow){
+    stoppingRequestedProcess = true;
+  }
+
   try{ recognition.stop(); }catch{}
+
   if(processNow){
     processDictationBuffer();
   }
@@ -1608,8 +1595,7 @@ document.getElementById("btnClear").addEventListener("click", () => {
 });
 
 document.getElementById("btnCopy").addEventListener("click", () => {
-  const txt = exportText();
-  copyToClipboard(txt);
+  copyToClipboard(exportText());
 });
 
 document.getElementById("btnToggleExport").addEventListener("click", () => {
@@ -1631,7 +1617,6 @@ document.getElementById("btnMic").addEventListener("click", (e) => {
   }else{
     btnMic.classList.remove("primary");
     btnMic.querySelector(".material-icons").textContent = "mic";
-    // al parar, auto-procesa lo acumulado
     stopDictation(true);
   }
 });
@@ -1686,3 +1671,4 @@ document.getElementById("btnResetAll").addEventListener("click", () => {
 </script>
 </body>
 </html>
+
